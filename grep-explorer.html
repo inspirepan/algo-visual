@@ -640,17 +640,6 @@
             border: 1px solid var(--border);
         }
 
-        .prompt-box {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 14px 16px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            box-shadow: var(--shadow);
-        }
 
         .bmgs-panel {
             display: grid;
@@ -672,25 +661,27 @@
             padding: 8px 10px;
             border-radius: 10px;
             border: 1px solid var(--border);
-            background: #ffffff;
+            background: #f2f0eb;
             font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
             font-size: 0.82rem;
             text-align: left;
             display: grid;
-            grid-template-columns: auto 1fr auto;
+            grid-template-columns: 110px 1fr auto;
             gap: 8px;
             align-items: center;
             cursor: pointer;
         }
 
         .bmgs-item.active {
-            background: #111827;
-            color: #ffffff;
-            border-color: #111827;
+            background: #ffffff;
+            color: var(--text);
+            border-color: #d8d4ca;
+            box-shadow: 0 10px 20px rgba(17, 24, 39, 0.08);
         }
 
         .bmgs-item-key {
             font-weight: 700;
+            color: var(--text);
         }
 
         .bmgs-item-suffix {
@@ -698,11 +689,16 @@
         }
 
         .bmgs-item.active .bmgs-item-suffix {
-            color: rgba(255, 255, 255, 0.7);
+            color: var(--muted);
         }
 
         .bmgs-item-val {
             font-weight: 700;
+            color: var(--muted);
+        }
+
+        .bmgs-item.active .bmgs-item-val {
+            color: var(--text);
         }
 
         .bmgs-meta {
@@ -716,7 +712,8 @@
             color: var(--text);
         }
 
-        .bmgs-diagram {
+        .bmgs-diagram,
+        .gs-diagram {
             padding: 12px 14px;
             border-radius: 12px;
             border: 1px dashed var(--border);
@@ -812,11 +809,6 @@
             font-weight: 600;
         }
 
-        .prompt-text {
-            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
-            font-size: 0.9rem;
-            color: var(--muted);
-        }
 
         @media (max-width: 980px) {
             .layout { grid-template-columns: 1fr; }
@@ -825,7 +817,6 @@
             .btn-row { grid-template-columns: repeat(2, 1fr); }
             .panel.sidebar { max-height: none; }
             .topbar { flex-direction: column; align-items: flex-start; }
-            .prompt-box { flex-direction: column; align-items: flex-start; }
             .strip-grid { grid-template-columns: 1fr; }
             .bmgs-grid { grid-template-columns: 1fr; }
         }
@@ -852,18 +843,12 @@
             <div class="strip-item">
                 <label for="presetChoice">预设场景</label>
                 <div class="option-group" id="presetGroup" role="radiogroup" aria-label="预设场景">
-                    <button class="option-pill active" data-value="default" role="radio" aria-checked="true">默认：grep 简介</button>
-                    <button class="option-pill" data-value="badchar" role="radio" aria-checked="false">坏字符规则大显身手</button>
-                    <button class="option-pill" data-value="suffix_align" role="radio" aria-checked="false">好后缀：仅前缀对齐</button>
-                    <button class="option-pill" data-value="suffix_full" role="radio" aria-checked="false">好后缀：内部完全重复</button>
-                    <button class="option-pill" data-value="grep_speed" role="radio" aria-checked="false">Grep 极速体验</button>
+                    <button class="option-pill" data-value="badchar" role="radio" aria-checked="false">坏字符</button>
+                    <button class="option-pill active" data-value="simple" role="radio" aria-checked="true">好后缀</button>
                 </div>
                 <select id="presetChoice" class="visually-hidden" aria-hidden="true" tabindex="-1">
-                    <option value="default">默认：grep 简介 (Naive vs BM)</option>
-                    <option value="badchar">坏字符规则大显身手 (Clean Break)</option>
-                    <option value="suffix_align">好后缀：仅前缀对齐 (EXAMPLE)</option>
-                    <option value="suffix_full">好后缀：内部完全重复 (Tooth)</option>
-                    <option value="grep_speed">Grep 极速体验 (长跳跃)</option>
+                    <option value="badchar">坏字符</option>
+                    <option value="simple" selected>好后缀</option>
                 </select>
             </div>
             <div class="strip-item">
@@ -887,17 +872,12 @@
                 <div class="section-title">实验设置</div>
                 <div class="control-group">
                     <label>搜索关键词</label>
-                    <input type="text" id="patternChoice" value="grep">
+                    <input type="text" id="patternChoice" value="EXAMPLE">
                 </div>
 
                 <div class="control-group">
                     <label>目标文本</label>
-                    <textarea id="textChoice" class="text-3lines" rows="3">grep is a command-line utility
-for searching plain-text data
-sets for lines that match a
-regular expression.
-It was written by Ken Thompson
-overnight for a task.</textarea>
+                    <textarea id="textChoice" class="text-3lines" rows="3">HERE IS A SIMPLE EXAMPLE OF TEXT</textarea>
                 </div>
             </div>
 
@@ -950,7 +930,7 @@ overnight for a task.</textarea>
                     <div class="calc-title">实时计算详情</div>
                     <div class="calc-grid">
                         <div class="calc-card" id="calcContent">等待运行...</div>
-                        <div class="calc-card">
+                        <div class="calc-card" id="gsCard">
                             <div style="font-weight: 600; color: var(--text); margin-bottom: 6px;">好后缀推导 (前缀回退)</div>
                             <div class="gs-walk" id="gsWalk">等待运行...</div>
                             <div class="calc-note" id="gsNote"></div>
@@ -999,10 +979,6 @@ overnight for a task.</textarea>
         </div>
     </section>
 
-    <div class="prompt-box">
-        <div class="prompt-text" id="promptText">请解释 Boyer-Moore 算法是如何在该文本中查找 "grep" 的。</div>
-        <button style="width: auto;" id="btnCopy" class="secondary">复制提示词</button>
-    </div>
 </div>
 
 <script>
@@ -1010,7 +986,7 @@ overnight for a task.</textarea>
     const PAD_LEFT = 20;
 
     const state = {
-        pattern: "grep",
+        pattern: "EXAMPLE",
         text: "",
         algorithm: "boyer",
         delay: 500,
@@ -1040,8 +1016,6 @@ overnight for a task.</textarea>
         lineDisplay: document.getElementById('lineDisplay'),
         logPanel: document.getElementById('logPanel'),
         output: document.getElementById('outputContainer'),
-        prompt: document.getElementById('promptText'),
-        btnCopy: document.getElementById('btnCopy'),
         preset: document.getElementById('presetChoice'),
         presetGroup: document.getElementById('presetGroup'),
         algoDetails: document.getElementById('algoDetails'),
@@ -1049,6 +1023,7 @@ overnight for a task.</textarea>
         bcTable: document.getElementById('bcTable'),
         gsTable: document.getElementById('gsTable'),
         calcContent: document.getElementById('calcContent'),
+        gsCard: document.getElementById('gsCard'),
         gsWalk: document.getElementById('gsWalk'),
         gsNote: document.getElementById('gsNote'),
         algoChip: document.getElementById('algoChip'),
@@ -1086,25 +1061,13 @@ overnight for a task.</textarea>
     };
 
     const PRESETS = {
-        default: {
-            p: "grep",
-            t: "grep is a command-line utility\nfor searching plain-text data\nsets for lines that match a\nregular expression.\nIt was written by Ken Thompson\novernight for a task."
-        },
         badchar: {
             p: "ABCDE",
             t: "XXXXAXXXXBXXXXCXXXXDXXXXE\nThis demonstrates Bad Char Rule.\nThe char 'X' is not in Pattern,\nso we skip entirely past it!"
         },
-        suffix_align: {
+        simple: {
             p: "EXAMPLE",
-            t: "HERE IS A SIMPLE EXAMPLE\nmatches are rare but shifts are huge.\nThe suffix 'MPLE' matches,\nbut fails at 'I'.\nAlgorithm finds 'E' prefix matches 'E' suffix."
-        },
-        suffix_full: {
-            p: "TOOTH",
-            t: "I HAVE A TOOTHACHE TODAY.\nFirst try: matches matches 'TH'.\nFail at 'O'.\nPattern has 'TO' prefix? No.\nPattern has 'OOTH' inside? No.\nWait, look for 'OTH' inside... No.\nLook for 'OO' in 'TOOTH'? Yes!"
-        },
-        grep_speed: {
-            p: "Z99",
-            t: "Searching for a rare code in a big block.\n.....................Z99FoundIt!\nOnly checks end chars mostly.\nSkip Skip Skip!"
+            t: "HERE IS A SIMPLE EXAMPLE OF TEXT"
         }
     };
 
@@ -1172,25 +1135,27 @@ overnight for a task.</textarea>
     const BMGS_CELL = 22;
     const BMGS_GAP = 6;
 
-    function buildBmgsDiagram(pattern, shift, mismatchIdx) {
+    function buildBadCharDiagram(pattern, shift, mismatchIdx, badChar, badCharPos) {
         const chars = pattern.split('');
         const row1 = chars.map((ch) => ({ ch, type: 'normal' }));
         const row2 = chars.map((ch, idx) => {
-            if (idx > mismatchIdx) {
-                return { ch, type: 'match' };
-            }
             if (idx === mismatchIdx) {
-                return { ch: '?', type: 'mismatch' };
+                return { ch: badChar, type: 'mismatch' };
             }
             return { ch: '?', type: 'dim' };
         });
-        const row3 = chars.map((ch) => ({ ch, type: 'shifted' }));
-        return { row1, row2, row3, shift };
+        const row3 = chars.map((ch, idx) => {
+            if (badCharPos >= 0 && idx === badCharPos) {
+                return { ch, type: 'match' };
+            }
+            return { ch, type: 'shifted' };
+        });
+        return { row1, row2, row3, shift, badCharPos, mismatchIdx };
     }
 
-    function renderBmgsDiagram(diagram) {
-        els.bmgsDiagram.innerHTML = '';
-        if (!diagram) return;
+    function renderBadCharDiagram(diagram, container) {
+        if (!container || !diagram) return;
+        container.innerHTML = '';
 
         const makeRow = (cells, gapCount) => {
             const row = document.createElement('div');
@@ -1209,9 +1174,9 @@ overnight for a task.</textarea>
             return row;
         };
 
-        els.bmgsDiagram.appendChild(makeRow(diagram.row1, 0));
-        els.bmgsDiagram.appendChild(makeRow(diagram.row2, 0));
-        els.bmgsDiagram.appendChild(makeRow(diagram.row3, diagram.shift));
+        container.appendChild(makeRow(diagram.row1, 0));
+        container.appendChild(makeRow(diagram.row2, 0));
+        container.appendChild(makeRow(diagram.row3, diagram.shift));
 
         const shiftRow = document.createElement('div');
         shiftRow.className = 'bmgs-shift';
@@ -1234,7 +1199,74 @@ overnight for a task.</textarea>
         label.textContent = `shift ${diagram.shift}`;
         shiftRow.appendChild(bar);
         shiftRow.appendChild(label);
-        els.bmgsDiagram.appendChild(shiftRow);
+        container.appendChild(shiftRow);
+    }
+
+    function buildBmgsDiagram(pattern, shift, mismatchIdx) {
+        const chars = pattern.split('');
+        const row1 = chars.map((ch) => ({ ch, type: 'normal' }));
+        const row2 = chars.map((ch, idx) => {
+            if (idx > mismatchIdx) {
+                return { ch, type: 'match' };
+            }
+            if (idx === mismatchIdx) {
+                return { ch: '?', type: 'mismatch' };
+            }
+            return { ch: '?', type: 'dim' };
+        });
+        const row3 = chars.map((ch) => ({ ch, type: 'shifted' }));
+        return { row1, row2, row3, shift };
+    }
+
+    function renderBmgsDiagram(diagram, container) {
+        const target = container || els.bmgsDiagram;
+        if (!target) return;
+        target.innerHTML = '';
+        if (!diagram) return;
+
+        const makeRow = (cells, gapCount) => {
+            const row = document.createElement('div');
+            row.className = 'bmgs-row';
+            for (let i = 0; i < (gapCount || 0); i++) {
+                const gap = document.createElement('div');
+                gap.className = 'bmgs-gap';
+                row.appendChild(gap);
+            }
+            cells.forEach((cell) => {
+                const box = document.createElement('div');
+                box.className = `bmgs-char${cell.type ? ' ' + cell.type : ''}`;
+                box.textContent = cell.ch;
+                row.appendChild(box);
+            });
+            return row;
+        };
+
+        target.appendChild(makeRow(diagram.row1, 0));
+        target.appendChild(makeRow(diagram.row2, 0));
+        target.appendChild(makeRow(diagram.row3, diagram.shift));
+
+        const shiftRow = document.createElement('div');
+        shiftRow.className = 'bmgs-shift';
+        const bar = document.createElement('div');
+        bar.className = 'bmgs-shift-bar';
+        const shiftCount = Math.max(1, diagram.shift);
+        const width = shiftCount * BMGS_CELL + Math.max(shiftCount - 1, 0) * BMGS_GAP;
+        bar.style.width = `${width}px`;
+        const capLeft = document.createElement('span');
+        capLeft.className = 'bmgs-shift-cap';
+        const line = document.createElement('span');
+        line.className = 'bmgs-shift-line';
+        const capRight = document.createElement('span');
+        capRight.className = 'bmgs-shift-cap';
+        bar.appendChild(capLeft);
+        bar.appendChild(line);
+        bar.appendChild(capRight);
+        const label = document.createElement('span');
+        label.className = 'bmgs-shift-label';
+        label.textContent = `shift ${diagram.shift}`;
+        shiftRow.appendChild(bar);
+        shiftRow.appendChild(label);
+        target.appendChild(shiftRow);
     }
 
     function renderBmgsMeaning(pattern) {
@@ -1479,7 +1511,8 @@ overnight for a task.</textarea>
         if (!suffix) {
             return {
                 html: '<div class="gs-empty">好后缀长度为 0，本轮无需推导。</div>',
-                note: `预处理表: bmGs[${mismatchIdx}] = ${shiftGS}，运行时 O(1) 查表。`
+                note: `预处理表: bmGs[${mismatchIdx}] = ${shiftGS}，运行时 O(1) 查表。`,
+                diagram: null
             };
         }
 
@@ -1489,14 +1522,15 @@ overnight for a task.</textarea>
             const tail = suffix.slice(suffix.length - k);
             const prefix = pattern.slice(0, k);
             const ok = tail === prefix;
-            items.push({ tail, prefix, ok });
+            const shift = pattern.length - k;
+            items.push({ tail, prefix, ok, shift });
             if (ok) {
                 found = true;
                 break;
             }
         }
 
-        if (!found) items.push({ tail: '无可用前缀', prefix: '全跳', ok: false, fallback: true });
+        if (!found) items.push({ tail: '无可用前缀', prefix: '全跳', ok: false, fallback: true, shift: pattern.length });
 
         const rows = items.map(item => {
             if (item.fallback) {
@@ -1505,6 +1539,8 @@ overnight for a task.</textarea>
                         <span class="gs-label">前缀回退</span>
                         <span class="gs-chip">${item.tail}</span>
                         <span class="gs-chip">${item.prefix}</span>
+                        <span style="flex: 1;"></span>
+                        <span class="gs-chip" style="min-width: 60px; text-align: center;">shift ${item.shift}</span>
                         <span class="gs-status no">全跳</span>
                     </div>
                 `;
@@ -1514,6 +1550,8 @@ overnight for a task.</textarea>
                     <span class="gs-chip">${item.tail}</span>
                     <span class="gs-label">对齐前缀</span>
                     <span class="gs-chip">${item.prefix}</span>
+                    <span style="flex: 1;"></span>
+                    <span class="gs-chip" style="min-width: 60px; text-align: center;">shift ${item.shift}</span>
                     <span class="gs-status ${item.ok ? 'ok' : 'no'}">${item.ok ? '行' : '不行'}</span>
                 </div>
             `;
@@ -1528,6 +1566,7 @@ overnight for a task.</textarea>
             <div class="gs-list">
                 ${rows}
             </div>
+            <div class="gs-diagram" id="gsDiagram" style="--bmgs-cell: 20px;"></div>
         `;
 
         const internalIdx = pattern.lastIndexOf(suffix, pattern.length - 2);
@@ -1537,7 +1576,8 @@ overnight for a task.</textarea>
 
         return {
             html,
-            note: `${extra}。预处理: suff[] -> bmGs[]，避免每次重新比对。`
+            note: `${extra}。预处理: suff[] -> bmGs[]，避免每次重新比对。`,
+            diagram: buildBmgsDiagram(pattern, shiftGS, mismatchIdx)
         };
     }
 
@@ -1611,11 +1651,13 @@ overnight for a task.</textarea>
         html += `<div class="calc-step">坏字符: <span class="calc-highlight">'${task.badChar}'</span>，最右出现 idx: ${task.badCharPos === -1 ? '不存在' : task.badCharPos}</div>`;
         html += `<div class="calc-step">计算: ${task.mismatchIdx} - ${task.badCharPos} = ${task.shiftBC}</div>`;
         html += `<div class="calc-step">建议跳跃: <span class="calc-highlight" style="color:${task.shiftBC === task.finalSkip ? 'var(--good)' : ''}">${task.shiftBC} 格</span></div>`;
+        html += `<div class="gs-diagram" id="bcDiagram" style="--bmgs-cell: 20px; margin-top: 8px;"></div>`;
 
-        html += `<div class="calc-step" style="margin-top:8px;"><strong>2. 好后缀规则</strong></div>`;
+        html += `<div class="calc-step" style="margin-top:12px;"><strong>2. 好后缀规则</strong></div>`;
         if (task.suffLen > 0) {
             html += `<div class="calc-step">匹配后缀: <span class="calc-highlight">"${task.suffStr}"</span> (长度 ${task.suffLen})</div>`;
             html += `<div class="calc-step">查表: bmGs[${task.mismatchIdx}] = <span class="calc-highlight" style="color:${task.shiftGS === task.finalSkip ? 'var(--good)' : ''}">${task.shiftGS}</span></div>`;
+            html += `<div class="gs-diagram" id="gsDiagramInline" style="--bmgs-cell: 20px; margin-top: 8px;"></div>`;
         } else {
             html += `<div class="calc-step">后缀长度 0，本规则贡献有限。</div>`;
         }
@@ -1625,9 +1667,25 @@ overnight for a task.</textarea>
         html += `</div>`;
 
         els.calcContent.innerHTML = html;
-        const walkthrough = buildGoodSuffixWalkthrough(task.pattern, task.mismatchIdx, task.shiftGS);
-        els.gsWalk.innerHTML = walkthrough.html;
-        els.gsNote.textContent = walkthrough.note;
+
+        const bcDiagram = buildBadCharDiagram(task.pattern, task.shiftBC, task.mismatchIdx, task.badChar, task.badCharPos);
+        const bcDiagramEl = els.calcContent.querySelector('#bcDiagram');
+        renderBadCharDiagram(bcDiagram, bcDiagramEl);
+
+        if (task.suffLen > 0) {
+            els.gsCard.style.display = '';
+            const gsDiagram = buildBmgsDiagram(task.pattern, task.shiftGS, task.mismatchIdx);
+            const gsDiagramEl = els.calcContent.querySelector('#gsDiagramInline');
+            renderBmgsDiagram(gsDiagram, gsDiagramEl);
+
+            const walkthrough = buildGoodSuffixWalkthrough(task.pattern, task.mismatchIdx, task.shiftGS);
+            els.gsWalk.innerHTML = walkthrough.html;
+            els.gsNote.textContent = walkthrough.note;
+            const gsDiagramInWalk = els.gsWalk.querySelector('#gsDiagram');
+            if (gsDiagramInWalk) gsDiagramInWalk.style.display = 'none';
+        } else {
+            els.gsCard.style.display = 'none';
+        }
     }
 
     function reset() {
@@ -1658,7 +1716,7 @@ overnight for a task.</textarea>
         syncOptionGroup(els.presetGroup, els.preset.value);
         syncOptionGroup(els.algoGroup, els.algo.value);
 
-        updatePrompt();
+        updateAlgoChip();
     }
 
     function initRun() {
@@ -1820,7 +1878,7 @@ overnight for a task.</textarea>
     }
 
     function updateAll() {
-        updatePrompt();
+        updateAlgoChip();
         els.speedVal.textContent = els.speed.value + "ms";
         state.delay = parseInt(els.speed.value, 10);
         if (state.isPlaying) {
@@ -1829,13 +1887,8 @@ overnight for a task.</textarea>
         }
     }
 
-    function updatePrompt() {
-        const alg = els.algo.value;
-        const pat = els.pattern.value;
-        const algName = alg === 'naive' ? '朴素(Naive)' : 'Boyer-Moore';
-        const txt = `请解释 ${algName} 算法是如何在该文本中查找 "${pat}" 的。重点讲解可视化中展示的原理，特别是不匹配和跳跃(Shift)的机制。`;
-        els.prompt.textContent = txt;
-        els.algoChip.textContent = alg === 'naive' ? 'Naive' : 'Boyer-Moore';
+    function updateAlgoChip() {
+        els.algoChip.textContent = els.algo.value === 'naive' ? 'Naive' : 'Boyer-Moore';
     }
 
     els.btnPlay.addEventListener('click', play);
@@ -1885,10 +1938,8 @@ overnight for a task.</textarea>
         if (data) {
             els.pattern.value = data.p;
             els.text.value = data.t;
-            if (key !== 'default') {
-                els.algo.value = 'boyer';
-                els.algoDesc.textContent = DESCRIPTIONS['boyer'];
-            }
+            els.algo.value = 'boyer';
+            els.algoDesc.textContent = DESCRIPTIONS['boyer'];
             syncOptionGroup(els.presetGroup, els.preset.value);
             syncOptionGroup(els.algoGroup, els.algo.value);
             reset();
@@ -1903,13 +1954,6 @@ overnight for a task.</textarea>
 
     els.pattern.addEventListener('input', reset);
     els.text.addEventListener('input', reset);
-
-    els.btnCopy.addEventListener('click', () => {
-        navigator.clipboard.writeText(els.prompt.textContent);
-        const orig = els.btnCopy.textContent;
-        els.btnCopy.textContent = "已复制";
-        setTimeout(() => els.btnCopy.textContent = orig, 1500);
-    });
 
     bindOptionGroup(els.presetGroup, els.preset);
     bindOptionGroup(els.algoGroup, els.algo);
