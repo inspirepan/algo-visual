@@ -532,11 +532,90 @@
         .calc-highlight { color: var(--text); background: #f5f3ee; padding: 0 4px; border-radius: 4px; }
 
         .gs-walk {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
             font-size: 0.82rem;
             line-height: 1.5;
             color: var(--text);
-            white-space: pre;
+        }
+
+        .gs-title {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .gs-meta {
+            display: grid;
+            gap: 6px;
+        }
+
+        .gs-meta-line {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .gs-meta-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .gs-chip {
+            padding: 2px 8px;
+            border-radius: 8px;
+            background: #f5f3ee;
+            border: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .gs-list {
+            display: grid;
+            gap: 6px;
+        }
+
+        .gs-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .gs-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .gs-status {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .gs-status.ok {
+            background: rgba(21, 128, 61, 0.12);
+            color: var(--good);
+        }
+
+        .gs-status.no {
+            background: rgba(185, 28, 28, 0.12);
+            color: var(--bad);
+        }
+
+        .gs-empty {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px dashed var(--border);
+            color: var(--muted);
+            background: #ffffff;
         }
 
         .calc-note {
@@ -573,6 +652,166 @@
             box-shadow: var(--shadow);
         }
 
+        .bmgs-panel {
+            display: grid;
+            gap: 14px;
+        }
+
+        .bmgs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            gap: 16px;
+        }
+
+        .bmgs-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .bmgs-item {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.82rem;
+            text-align: left;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 8px;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .bmgs-item.active {
+            background: #111827;
+            color: #ffffff;
+            border-color: #111827;
+        }
+
+        .bmgs-item-key {
+            font-weight: 700;
+        }
+
+        .bmgs-item-suffix {
+            color: var(--muted);
+        }
+
+        .bmgs-item.active .bmgs-item-suffix {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .bmgs-item-val {
+            font-weight: 700;
+        }
+
+        .bmgs-meta {
+            display: grid;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .bmgs-meta strong {
+            color: var(--text);
+        }
+
+        .bmgs-diagram {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+            background: #ffffff;
+            display: grid;
+            gap: 6px;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.86rem;
+            overflow-x: auto;
+        }
+
+        .bmgs-line {
+            white-space: pre;
+        }
+
+        .bmgs-line.shift {
+            color: var(--accent-ink);
+            font-weight: 600;
+        }
+
+        .bmgs-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bmgs-gap {
+            width: var(--bmgs-cell, 22px);
+            height: var(--bmgs-cell, 22px);
+        }
+
+        .bmgs-char {
+            width: var(--bmgs-cell, 22px);
+            height: var(--bmgs-cell, 22px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #f7f5f0;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .bmgs-char.dim {
+            opacity: 0.6;
+        }
+
+        .bmgs-char.mismatch {
+            background: rgba(185, 28, 28, 0.12);
+            color: var(--bad);
+            border-color: rgba(185, 28, 28, 0.4);
+        }
+
+        .bmgs-char.shifted {
+            background: rgba(249, 115, 22, 0.12);
+            color: var(--accent-ink);
+            border-color: rgba(249, 115, 22, 0.5);
+        }
+
+        .bmgs-char.match {
+            background: rgba(21, 128, 61, 0.12);
+            color: var(--good);
+            border-color: rgba(21, 128, 61, 0.4);
+        }
+
+        .bmgs-shift {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bmgs-shift-bar {
+            display: flex;
+            align-items: center;
+        }
+
+        .bmgs-shift-cap {
+            width: 2px;
+            height: 12px;
+            background: var(--accent-ink);
+        }
+
+        .bmgs-shift-line {
+            height: 2px;
+            background: var(--accent-ink);
+            flex: 1;
+        }
+
+        .bmgs-shift-label {
+            font-size: 0.75rem;
+            color: var(--accent-ink);
+            font-weight: 600;
+        }
+
         .prompt-text {
             font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
             font-size: 0.9rem;
@@ -588,6 +827,7 @@
             .topbar { flex-direction: column; align-items: flex-start; }
             .prompt-box { flex-direction: column; align-items: flex-start; }
             .strip-grid { grid-template-columns: 1fr; }
+            .bmgs-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -712,7 +952,7 @@ overnight for a task.</textarea>
                         <div class="calc-card" id="calcContent">等待运行...</div>
                         <div class="calc-card">
                             <div style="font-weight: 600; color: var(--text); margin-bottom: 6px;">好后缀推导 (前缀回退)</div>
-                            <pre class="gs-walk" id="gsWalk">等待运行...</pre>
+                            <div class="gs-walk" id="gsWalk">等待运行...</div>
                             <div class="calc-note" id="gsNote"></div>
                         </div>
                     </div>
@@ -744,6 +984,20 @@ overnight for a task.</textarea>
             </div>
         </main>
     </div>
+
+    <section class="panel bmgs-panel" id="bmgsPanel">
+        <div class="section-title">bmGs 含义与匹配示意</div>
+        <div class="bmgs-grid">
+            <div>
+                <div class="bmgs-list" id="bmgsList"></div>
+            </div>
+            <div>
+                <div class="bmgs-meta" id="bmgsMeta"></div>
+                <div class="bmgs-diagram" id="bmgsDiagram"></div>
+                <div class="calc-note" id="bmgsNote"></div>
+            </div>
+        </div>
+    </section>
 
     <div class="prompt-box">
         <div class="prompt-text" id="promptText">请解释 Boyer-Moore 算法是如何在该文本中查找 "grep" 的。</div>
@@ -797,7 +1051,12 @@ overnight for a task.</textarea>
         calcContent: document.getElementById('calcContent'),
         gsWalk: document.getElementById('gsWalk'),
         gsNote: document.getElementById('gsNote'),
-        algoChip: document.getElementById('algoChip')
+        algoChip: document.getElementById('algoChip'),
+        bmgsPanel: document.getElementById('bmgsPanel'),
+        bmgsList: document.getElementById('bmgsList'),
+        bmgsMeta: document.getElementById('bmgsMeta'),
+        bmgsDiagram: document.getElementById('bmgsDiagram'),
+        bmgsNote: document.getElementById('bmgsNote')
     };
 
     function syncOptionGroup(groupEl, value) {
@@ -910,6 +1169,142 @@ overnight for a task.</textarea>
         });
     }
 
+    const BMGS_CELL = 22;
+    const BMGS_GAP = 6;
+
+    function buildBmgsDiagram(pattern, shift, mismatchIdx) {
+        const chars = pattern.split('');
+        const row1 = chars.map((ch) => ({ ch, type: 'normal' }));
+        const row2 = chars.map((ch, idx) => {
+            if (idx > mismatchIdx) {
+                return { ch, type: 'match' };
+            }
+            if (idx === mismatchIdx) {
+                return { ch: '?', type: 'mismatch' };
+            }
+            return { ch: '?', type: 'dim' };
+        });
+        const row3 = chars.map((ch) => ({ ch, type: 'shifted' }));
+        return { row1, row2, row3, shift };
+    }
+
+    function renderBmgsDiagram(diagram) {
+        els.bmgsDiagram.innerHTML = '';
+        if (!diagram) return;
+
+        const makeRow = (cells, gapCount) => {
+            const row = document.createElement('div');
+            row.className = 'bmgs-row';
+            for (let i = 0; i < (gapCount || 0); i++) {
+                const gap = document.createElement('div');
+                gap.className = 'bmgs-gap';
+                row.appendChild(gap);
+            }
+            cells.forEach((cell) => {
+                const box = document.createElement('div');
+                box.className = `bmgs-char${cell.type ? ' ' + cell.type : ''}`;
+                box.textContent = cell.ch;
+                row.appendChild(box);
+            });
+            return row;
+        };
+
+        els.bmgsDiagram.appendChild(makeRow(diagram.row1, 0));
+        els.bmgsDiagram.appendChild(makeRow(diagram.row2, 0));
+        els.bmgsDiagram.appendChild(makeRow(diagram.row3, diagram.shift));
+
+        const shiftRow = document.createElement('div');
+        shiftRow.className = 'bmgs-shift';
+        const bar = document.createElement('div');
+        bar.className = 'bmgs-shift-bar';
+        const shiftCount = Math.max(1, diagram.shift);
+        const width = shiftCount * BMGS_CELL + Math.max(shiftCount - 1, 0) * BMGS_GAP;
+        bar.style.width = `${width}px`;
+        const capLeft = document.createElement('span');
+        capLeft.className = 'bmgs-shift-cap';
+        const line = document.createElement('span');
+        line.className = 'bmgs-shift-line';
+        const capRight = document.createElement('span');
+        capRight.className = 'bmgs-shift-cap';
+        bar.appendChild(capLeft);
+        bar.appendChild(line);
+        bar.appendChild(capRight);
+        const label = document.createElement('span');
+        label.className = 'bmgs-shift-label';
+        label.textContent = `shift ${diagram.shift}`;
+        shiftRow.appendChild(bar);
+        shiftRow.appendChild(label);
+        els.bmgsDiagram.appendChild(shiftRow);
+    }
+
+    function renderBmgsMeaning(pattern) {
+        if (!pattern) {
+            els.bmgsList.innerHTML = '';
+            els.bmgsMeta.textContent = '';
+            els.bmgsDiagram.textContent = '';
+            els.bmgsNote.textContent = '';
+            return;
+        }
+
+        const { bmGs, suff } = makeGoodSuffixTable(pattern);
+        els.bmgsList.innerHTML = '';
+
+        const defaultIdx = pattern.length > 2 ? 1 : 0;
+        const makeItem = (idx) => {
+            const suffix = pattern.substring(idx + 1) || 'empty';
+            const shift = bmGs[idx];
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'bmgs-item';
+            item.dataset.idx = idx;
+
+            const key = document.createElement('span');
+            key.className = 'bmgs-item-key';
+            key.textContent = `bmGs[${idx}]`;
+
+            const suf = document.createElement('span');
+            suf.className = 'bmgs-item-suffix';
+            suf.textContent = `suffix: ${suffix}`;
+
+            const val = document.createElement('span');
+            val.className = 'bmgs-item-val';
+            val.textContent = shift;
+
+            item.appendChild(key);
+            item.appendChild(suf);
+            item.appendChild(val);
+            return item;
+        };
+
+        bmGs.forEach((_, idx) => {
+            els.bmgsList.appendChild(makeItem(idx));
+        });
+
+        const activate = (idx) => {
+            const buttons = els.bmgsList.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.idx, 10) === idx);
+            });
+
+            const suffix = pattern.substring(idx + 1) || 'empty';
+            const shift = bmGs[idx];
+            els.bmgsMeta.textContent = '';
+
+            const diagram = buildBmgsDiagram(pattern, shift, idx);
+            renderBmgsDiagram(diagram);
+
+            els.bmgsNote.textContent = `当前算法 ${els.algo.value === 'boyer' ? '使用' : '未使用'} bmGs[]，bmGs[${idx}] 表示在 idx ${idx} 失配时的好后缀位移。`;
+        };
+
+        els.bmgsList.onclick = (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+            activate(parseInt(btn.dataset.idx, 10));
+        };
+
+        activate(defaultIdx);
+    }
+
     function generateSteps(text, pattern, algo) {
         let bcTable = {};
         let gsData = { bmGs: [] };
@@ -1015,7 +1410,14 @@ overnight for a task.</textarea>
                         foundInLine = true;
                         tasks.push({ type: 'found', start: i, end: i + pattern.length });
                         const fullMatchShift = gsData.bmGs[0] || 1;
-                        tasks.push({ type: 'shift', amount: fullMatchShift, reason: `匹配成功，GS 建议跳 ${fullMatchShift} 格寻找下一个。` });
+                        tasks.push({
+                            type: 'shift',
+                            amount: fullMatchShift,
+                            reason: `匹配成功，GS 建议跳 ${fullMatchShift} 格寻找下一个。`,
+                            fullMatch: true,
+                            fullMatchShift: fullMatchShift,
+                            pattern: pattern
+                        });
                         i += fullMatchShift;
                     } else {
                         i += skip;
@@ -1076,30 +1478,57 @@ overnight for a task.</textarea>
         const suffix = pattern.substring(mismatchIdx + 1);
         if (!suffix) {
             return {
-                text: '好后缀长度为 0，本轮无需推导。',
+                html: '<div class="gs-empty">好后缀长度为 0，本轮无需推导。</div>',
                 note: `预处理表: bmGs[${mismatchIdx}] = ${shiftGS}，运行时 O(1) 查表。`
             };
         }
 
-        const lines = [];
-        lines.push(pattern);
-        lines.push(' '.repeat(mismatchIdx + 1) + suffix);
-        lines.push('');
-        lines.push('前缀回退检测:');
-
+        const items = [];
         let found = false;
         for (let k = suffix.length; k >= 1; k--) {
             const tail = suffix.slice(suffix.length - k);
             const prefix = pattern.slice(0, k);
             const ok = tail === prefix;
-            lines.push(`- ${tail} vs ${prefix} (前缀) -> ${ok ? '行' : '不行'}`);
+            items.push({ tail, prefix, ok });
             if (ok) {
                 found = true;
                 break;
             }
         }
 
-        if (!found) lines.push('- 无可用前缀，使用全跳');
+        if (!found) items.push({ tail: '无可用前缀', prefix: '全跳', ok: false, fallback: true });
+
+        const rows = items.map(item => {
+            if (item.fallback) {
+                return `
+                    <div class="gs-row">
+                        <span class="gs-label">前缀回退</span>
+                        <span class="gs-chip">${item.tail}</span>
+                        <span class="gs-chip">${item.prefix}</span>
+                        <span class="gs-status no">全跳</span>
+                    </div>
+                `;
+            }
+            return `
+                <div class="gs-row">
+                    <span class="gs-chip">${item.tail}</span>
+                    <span class="gs-label">对齐前缀</span>
+                    <span class="gs-chip">${item.prefix}</span>
+                    <span class="gs-status ${item.ok ? 'ok' : 'no'}">${item.ok ? '行' : '不行'}</span>
+                </div>
+            `;
+        }).join('');
+
+        const html = `
+            <div class="gs-title">前缀回退检测</div>
+            <div class="gs-meta">
+                <div class="gs-meta-line"><span class="gs-meta-label">Pattern</span><span class="gs-chip">${pattern}</span></div>
+                <div class="gs-meta-line"><span class="gs-meta-label">Suffix</span><span class="gs-chip">${suffix}</span></div>
+            </div>
+            <div class="gs-list">
+                ${rows}
+            </div>
+        `;
 
         const internalIdx = pattern.lastIndexOf(suffix, pattern.length - 2);
         const extra = internalIdx !== -1
@@ -1107,8 +1536,70 @@ overnight for a task.</textarea>
             : '内部匹配: 未找到 (回退到前缀策略)';
 
         return {
-            text: lines.join('\n'),
+            html,
             note: `${extra}。预处理: suff[] -> bmGs[]，避免每次重新比对。`
+        };
+    }
+
+    function buildFullMatchWalkthrough(pattern, shift) {
+        if (!pattern) {
+            return {
+                html: '<div class="gs-empty">模式为空，无法推导。</div>',
+                note: ''
+            };
+        }
+
+        const items = [];
+        let found = false;
+        for (let k = pattern.length - 1; k >= 1; k--) {
+            const tail = pattern.slice(pattern.length - k);
+            const prefix = pattern.slice(0, k);
+            const ok = tail === prefix;
+            items.push({ tail, prefix, ok });
+            if (ok) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) items.push({ tail: '无可用前缀', prefix: '全跳', ok: false, fallback: true });
+
+        const rows = items.map(item => {
+            if (item.fallback) {
+                return `
+                    <div class="gs-row">
+                        <span class="gs-label">完整匹配回退</span>
+                        <span class="gs-chip">${item.tail}</span>
+                        <span class="gs-chip">${item.prefix}</span>
+                        <span class="gs-status no">全跳</span>
+                    </div>
+                `;
+            }
+            return `
+                <div class="gs-row">
+                    <span class="gs-chip">${item.tail}</span>
+                    <span class="gs-label">对齐前缀</span>
+                    <span class="gs-chip">${item.prefix}</span>
+                    <span class="gs-status ${item.ok ? 'ok' : 'no'}">${item.ok ? '行' : '不行'}</span>
+                </div>
+            `;
+        }).join('');
+
+        const html = `
+            <div class="gs-title">完整匹配回退</div>
+            <div class="gs-meta">
+                <div class="gs-meta-line"><span class="gs-meta-label">Pattern</span><span class="gs-chip">${pattern}</span></div>
+                <div class="gs-meta-line"><span class="gs-meta-label">Suffix</span><span class="gs-chip">${pattern}</span></div>
+                <div class="gs-meta-line"><span class="gs-meta-label">Shift</span><span class="gs-chip">${shift}</span></div>
+            </div>
+            <div class="gs-list">
+                ${rows}
+            </div>
+        `;
+
+        return {
+            html,
+            note: '完整匹配时使用 bmGs[0]，等价于寻找最长真前缀=真后缀。'
         };
     }
 
@@ -1135,7 +1626,7 @@ overnight for a task.</textarea>
 
         els.calcContent.innerHTML = html;
         const walkthrough = buildGoodSuffixWalkthrough(task.pattern, task.mismatchIdx, task.shiftGS);
-        els.gsWalk.textContent = walkthrough.text;
+        els.gsWalk.innerHTML = walkthrough.html;
         els.gsNote.textContent = walkthrough.note;
     }
 
@@ -1161,6 +1652,8 @@ overnight for a task.</textarea>
         } else {
             els.algoDetails.style.display = 'none';
         }
+
+        renderBmgsMeaning(els.pattern.value);
 
         syncOptionGroup(els.presetGroup, els.preset.value);
         syncOptionGroup(els.algoGroup, els.algo.value);
@@ -1256,10 +1749,15 @@ overnight for a task.</textarea>
                 addLog(task.reason);
                 if (task.shiftGS !== undefined) {
                     renderCalc(task);
+                } else if (task.fullMatch && state.algorithm === 'boyer') {
+                    els.calcContent.innerHTML = task.reason || '匹配成功，继续向后扫描。';
+                    const walkthrough = buildFullMatchWalkthrough(state.pattern, task.fullMatchShift || task.amount || 1);
+                    els.gsWalk.innerHTML = walkthrough.html;
+                    els.gsNote.textContent = walkthrough.note;
                 } else {
                     els.calcContent.innerHTML = task.reason || '移动窗口继续比较。';
                     els.gsWalk.textContent = state.algorithm === 'boyer'
-                        ? '完整匹配，无需推导好后缀。'
+                        ? '完整匹配（或非失配场景），请查看 bmGs[0] 的位移示意。'
                         : '朴素算法不使用好后缀规则。';
                     els.gsNote.textContent = '';
                 }
