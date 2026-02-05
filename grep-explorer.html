@@ -3,332 +3,772 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grep 原理可视化</title>
+    <title>Grep 原理可视化 - Boyer-Moore</title>
     <style>
         :root {
-            --bg: #111827;
-            --panel-bg: #1f2937;
-            --border: #374151;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --primary: #3b82f6;
-            --success: #10b981;
-            --error: #ef4444;
-            --highlight: #f59e0b;
+            --bg: #f7f6f1;
+            --panel: #ffffff;
+            --panel-2: #fbfaf6;
+            --border: #e6e2d9;
+            --text: #111827;
+            --muted: #6b7280;
+            --accent: #f97316;
+            --accent-ink: #9a3412;
+            --good: #15803d;
+            --bad: #b91c1c;
+            --info: #0ea5e9;
+            --shadow: 0 22px 50px rgba(17, 24, 39, 0.08);
+            --cell-w: 30px;
+            --cell-h: 40px;
+            --line-pad: 20px;
+            --line-pad-y: 24px;
+            --pattern-gap: 6px;
         }
 
-        /* Fix alignment issues by ensuring borders don't add to width */
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-        
+        *, *::before, *::after { box-sizing: border-box; }
+
         body {
             margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            height: 100vh;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
+            padding: 24px;
+            font-family: "Space Grotesk", "Soehne", "SF Pro Text", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1000px 600px at 15% -10%, rgba(249, 115, 22, 0.12), transparent 60%),
+                radial-gradient(900px 600px at 95% 0%, rgba(14, 165, 233, 0.12), transparent 55%),
+                linear-gradient(180deg, #f7f6f1 0%, #f4f2ed 60%, #f7f6f1 100%);
+            min-height: 100vh;
         }
 
-        .container {
-            display: grid;
-            grid-template-columns: 350px 1fr;
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(17, 24, 39, 0.35) transparent;
+        }
+
+        *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: rgba(17, 24, 39, 0.35);
+            border-radius: 999px;
+            border: 2px solid rgba(247, 246, 241, 0.9);
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background: rgba(17, 24, 39, 0.55);
+        }
+
+        .app {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
-            flex: 1;
-            min-height: 0;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .brand {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .badge {
+            padding: 6px 10px;
+            background: #fff3e7;
+            color: var(--accent-ink);
+            border: 1px solid #ffd8b3;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .title h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 650;
+        }
+
+        .title p {
+            margin: 4px 0 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chip {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .control-strip {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            padding: 16px 18px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .strip-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .strip-item {
+            display: grid;
+            gap: 6px;
+        }
+
+        .strip-item .helper {
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .option-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .option-pill {
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .option-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(17, 24, 39, 0.08);
+        }
+
+        .option-pill.active {
+            background: var(--text);
+            color: #ffffff;
+            border-color: var(--text);
+        }
+
+        .visually-hidden {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            width: 0;
         }
 
         .panel {
-            background: var(--panel-bg);
+            background: var(--panel);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            overflow-y: auto;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: var(--shadow);
         }
 
-        h2 { margin: 0 0 10px 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
-        
-        /* Controls */
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
-        input, textarea, select {
-            background: #111827;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 8px;
-            border-radius: 4px;
-            font-family: inherit;
+        .panel.sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: calc(100vh - 220px);
+            overflow: auto;
         }
-        textarea { resize: vertical; min-height: 100px; font-family: monospace; }
-        
-        .btn-row { display: flex; gap: 10px; }
+
+        .card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        label {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        input, textarea, select {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        input[type="range"] {
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(17, 24, 39, 0.75), rgba(17, 24, 39, 0.2));
+            cursor: pointer;
+            padding: 0;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            background: transparent;
+            border-radius: 999px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #111827;
+            border: 3px solid #ffffff;
+            box-shadow: 0 6px 16px rgba(17, 24, 39, 0.2);
+            margin-top: -6px;
+        }
+
+        input[type="range"]::-moz-range-track {
+            height: 6px;
+            background: rgba(17, 24, 39, 0.2);
+            border-radius: 999px;
+        }
+
+        input[type="range"]::-moz-range-progress {
+            height: 6px;
+            background: rgba(17, 24, 39, 0.75);
+            border-radius: 999px;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #111827;
+            border: 3px solid #ffffff;
+            box-shadow: 0 6px 16px rgba(17, 24, 39, 0.2);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: rgba(249, 115, 22, 0.5);
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+        }
+
+        textarea {
+            min-height: 140px;
+            resize: vertical;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            min-width: 0;
+        }
+
+        .text-3lines {
+            min-height: 0;
+            height: calc(1.4em * 3 + 20px);
+            overflow: auto;
+        }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
         button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            background: var(--text);
+            color: #ffffff;
+            border: 1px solid transparent;
+            padding: 9px 12px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            flex: 1;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
-        button:hover { opacity: 0.9; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        button.secondary { background: var(--border); }
-        
-        input[type="range"] { flex: 1; }
 
-        /* Visualization Area */
+        button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(17, 24, 39, 0.12); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
+        button.secondary { background: #ffffff; color: var(--text); border-color: var(--border); }
+        button.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+
+        .status-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            font-size: 0.82rem;
+        }
+
+        .viz-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .meta-line {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .legend {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend i {
+            width: 10px;
+            height: 10px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
         .viz-stage {
-            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            font-family: monospace;
-            font-size: 1.2rem;
-            position: relative;
+            gap: 14px;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
         }
 
         .line-display {
-            background: #111827;
-            padding: 20px;
-            padding-left: 20px; /* Fixed padding */
-            border-radius: 8px;
+            background: linear-gradient(180deg, #fff 0%, #f9f8f4 100%);
+            padding: var(--line-pad-y) var(--line-pad);
+            border-radius: 12px;
             border: 1px solid var(--border);
             display: flex;
-            align-items: center;
-            overflow-x: auto;
-            min-height: 80px;
+            align-items: flex-start;
+            overflow: hidden;
+            min-height: calc((var(--line-pad-y) * 2) + (var(--cell-h) * 2) + var(--pattern-gap));
             position: relative;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
         }
 
         .char-box {
-            width: 30px;
-            height: 40px;
-            display: flex;
+            width: var(--cell-w);
+            height: var(--cell-h);
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid transparent; /* Always have border to maintain size */
+            border-bottom: 2px solid #d9d6ce;
             position: relative;
             flex-shrink: 0;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace; /* Force monospace */
+            font-size: 1.05rem;
+            color: var(--text);
         }
-        .char-box.text-char { border-bottom: 2px solid #555; }
-        
-        .char-box.match { background-color: rgba(16, 185, 129, 0.2); color: var(--success); font-weight: bold; }
-        .char-box.mismatch { background-color: rgba(239, 68, 68, 0.2); color: var(--error); }
-        .char-box.active { border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.1); }
-        .char-box.checked { opacity: 0.7; }
 
-        /* Pattern overlay */
+        .char-box.match { background: rgba(21, 128, 61, 0.12); color: var(--good); font-weight: 700; }
+        .char-box.mismatch { background: rgba(185, 28, 28, 0.12); color: var(--bad); }
+        .char-box.active { border: 1px solid rgba(14, 165, 233, 0.5); background: rgba(14, 165, 233, 0.08); }
+
         .pattern-overlay {
             position: absolute;
-            top: 50px; /* Offset below text */
-            left: 20px; /* MUST MATCH .line-display padding-left */
+            top: calc(var(--line-pad-y) + var(--cell-h) + var(--pattern-gap));
+            left: var(--line-pad);
             display: flex;
             transition: left 0.2s cubic-bezier(0.25, 1, 0.5, 1);
             pointer-events: none;
             will-change: left;
         }
+
         .pattern-char {
-            width: 30px; /* MUST MATCH .char-box width */
-            height: 40px;
+            width: var(--cell-w);
+            height: var(--cell-h);
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid var(--highlight);
-            color: var(--highlight);
-            font-weight: bold;
+            background: rgba(249, 115, 22, 0.08);
+            border: 1px solid rgba(249, 115, 22, 0.8);
+            color: var(--accent-ink);
+            font-weight: 700;
             box-sizing: border-box;
             flex-shrink: 0;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 1.05rem;
         }
 
-        /* Stats & Log */
         .log-panel {
-            flex: 1;
-            background: #111827;
+            background: #ffffff;
             border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--text-muted);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 0.88rem;
+            color: var(--muted);
+            max-height: 180px;
             overflow-y: auto;
-            max-height: 200px;
         }
-        .log-entry { margin-bottom: 4px; }
-        .log-entry.highlight { color: var(--text-main); font-weight: bold; }
 
-        /* Output View */
+        .log-entry { margin-bottom: 6px; }
+        .log-entry.highlight { color: var(--text); font-weight: 600; }
+
+        .grid-three {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        .grid-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .result-row {
+            margin-top: 16px;
+        }
+
         .output-view {
-            margin-top: 20px;
-            border-top: 1px solid var(--border);
-            padding-top: 10px;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            color: var(--muted);
+            min-height: 160px;
         }
-        .output-line { color: var(--text-muted); padding: 2px 0; }
-        .output-line.found { color: var(--success); font-weight: bold; }
-        .output-line .match-span { background: rgba(16, 185, 129, 0.3); color: white; }
 
-        /* Footer Prompt */
-        .prompt-box {
-            grid-column: 1 / -1;
-            background: #1f2937;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
+        .output-line.found { color: var(--good); font-weight: 600; }
+
+        .calc-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .calc-title {
+            color: var(--accent-ink);
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .calc-card {
+            padding: 10px 12px;
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            background: #fff;
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
+        .calc-step { margin-bottom: 6px; }
+        .calc-highlight { color: var(--text); background: #f5f3ee; padding: 0 4px; border-radius: 4px; }
+
+        .gs-walk {
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: var(--text);
+            white-space: pre;
+        }
+
+        .calc-note {
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .table-list {
+            display: grid;
+            gap: 6px;
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.78rem;
+        }
+
+        .table-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            padding: 4px 6px;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid var(--border);
         }
-        .prompt-text { font-family: monospace; color: var(--text-main); flex: 1; margin-right: 20px; }
+
+        .prompt-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .prompt-text {
+            font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 980px) {
+            .layout { grid-template-columns: 1fr; }
+            .grid-three { grid-template-columns: 1fr; }
+            .grid-split { grid-template-columns: 1fr; }
+            .btn-row { grid-template-columns: repeat(2, 1fr); }
+            .panel.sidebar { max-height: none; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+            .prompt-box { flex-direction: column; align-items: flex-start; }
+            .strip-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <!-- Left Controls -->
-    <div class="panel">
-        <h2>实验设置 (Settings)</h2>
-        
-        <div class="control-group">
-            <label>预设场景 (Presets)</label>
-            <select id="presetChoice">
-                <option value="default">默认：grep 简介 (Naive vs BM)</option>
-                <option value="badchar">坏字符规则大显身手 (Clean Break)</option>
-                <option value="suffix_align">好后缀：仅前缀对齐 (EXAMPLE)</option>
-                <option value="suffix_full">好后缀：内部完全重复 (Tooth)</option>
-                <option value="grep_speed">Grep 极速体验 (长跳跃)</option>
-            </select>
+<div class="app">
+    <header class="topbar">
+        <div class="brand">
+            <span class="badge">Grep Lab</span>
+            <div class="title">
+                <h1>Grep 原理可视化</h1>
+                <p>以 Boyer-Moore 为核心，观察坏字符与好后缀如何驱动跳跃</p>
+            </div>
         </div>
-
-        <div class="control-group">
-            <label>搜索关键词 (Pattern)</label>
-            <input type="text" id="patternChoice" value="grep">
+        <div class="top-actions">
+            <div class="chip" id="algoChip">Boyer-Moore</div>
+            <div class="chip">Shift Focus</div>
         </div>
+    </header>
 
-        <div class="control-group">
-            <label>目标文本 (Target Text)</label>
-            <textarea id="textChoice">grep is a command-line utility
+    <section class="control-strip">
+        <div class="strip-grid">
+            <div class="strip-item">
+                <label for="presetChoice">预设场景</label>
+                <div class="option-group" id="presetGroup" role="radiogroup" aria-label="预设场景">
+                    <button class="option-pill active" data-value="default" role="radio" aria-checked="true">默认：grep 简介</button>
+                    <button class="option-pill" data-value="badchar" role="radio" aria-checked="false">坏字符规则大显身手</button>
+                    <button class="option-pill" data-value="suffix_align" role="radio" aria-checked="false">好后缀：仅前缀对齐</button>
+                    <button class="option-pill" data-value="suffix_full" role="radio" aria-checked="false">好后缀：内部完全重复</button>
+                    <button class="option-pill" data-value="grep_speed" role="radio" aria-checked="false">Grep 极速体验</button>
+                </div>
+                <select id="presetChoice" class="visually-hidden" aria-hidden="true" tabindex="-1">
+                    <option value="default">默认：grep 简介 (Naive vs BM)</option>
+                    <option value="badchar">坏字符规则大显身手 (Clean Break)</option>
+                    <option value="suffix_align">好后缀：仅前缀对齐 (EXAMPLE)</option>
+                    <option value="suffix_full">好后缀：内部完全重复 (Tooth)</option>
+                    <option value="grep_speed">Grep 极速体验 (长跳跃)</option>
+                </select>
+            </div>
+            <div class="strip-item">
+                <label for="algoChoice">算法</label>
+                <div class="option-group" id="algoGroup" role="radiogroup" aria-label="算法">
+                    <button class="option-pill" data-value="naive" role="radio" aria-checked="false">朴素匹配</button>
+                    <button class="option-pill active" data-value="boyer" role="radio" aria-checked="true">Boyer-Moore (BC + GS)</button>
+                </div>
+                <select id="algoChoice" class="visually-hidden" aria-hidden="true" tabindex="-1">
+                    <option value="naive">朴素匹配 (Naive Scan)</option>
+                    <option value="boyer" selected>Boyer-Moore (BC + GS)</option>
+                </select>
+                <div id="algoDesc" class="helper">右向左比较，遇到不匹配时结合坏字符与好后缀，计算跳跃步数并取最大值。</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="layout">
+        <aside class="panel sidebar">
+            <div class="card">
+                <div class="section-title">实验设置</div>
+                <div class="control-group">
+                    <label>搜索关键词</label>
+                    <input type="text" id="patternChoice" value="grep">
+                </div>
+
+                <div class="control-group">
+                    <label>目标文本</label>
+                    <textarea id="textChoice" class="text-3lines" rows="3">grep is a command-line utility
 for searching plain-text data
 sets for lines that match a
 regular expression.
 It was written by Ken Thompson
 overnight for a task.</textarea>
-        </div>
-
-        <div class="control-group">
-            <label>算法 (Algorithm)</label>
-            <select id="algoChoice">
-                <option value="naive">朴素匹配 (Naive Scan)</option>
-                <option value="boyer">Boyer-Moore (完整版: BC + GS)</option>
-            </select>
-            <div id="algoDesc" style="font-size: 0.8em; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
-                线性检查每个字符。简单但效率较低 O(n*m)。
-            </div>
-        </div>
-        
-        <!-- Algorithm Details Panel (Hidden for Naive) -->
-        <div id="algoDetails" style="display:none; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px;">
-            <div style="font-size:0.9em; font-weight:bold; margin-bottom:8px; color:var(--highlight)">预处理表 (Preprocessing Tables)</div>
-            
-            <div style="display:flex; gap:10px; font-size: 0.75rem;">
-                <div style="flex:1">
-                    <div style="margin-bottom:4px; color:var(--text-muted)">坏字符表 (Bad Char)</div>
-                    <div id="bcTable" style="background:#111; padding:5px; border-radius:4px; max-height:100px; overflow-y:auto; font-family:monospace;">
-                        <!-- injected JS -->
-                    </div>
-                </div>
-                <div style="flex:1">
-                    <div style="margin-bottom:4px; color:var(--text-muted)">好后缀表 (Good Suffix)</div>
-                    <div id="gsTable" style="background:#111; padding:5px; border-radius:4px; max-height:100px; overflow-y:auto; font-family:monospace;">
-                        <!-- injected JS -->
-                    </div>
                 </div>
             </div>
-            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;">
-                * 不匹配时，比较两个表的建议跳跃值，取最大者。
+
+            <div class="card">
+                <div class="control-group">
+                    <label>动画速度: <span id="speedVal">500ms</span></label>
+                    <input type="range" id="speedChoice" min="50" max="1000" step="50" value="500" style="direction: rtl">
+                </div>
+
+                <div class="btn-row">
+                    <button id="btnPlay">播放</button>
+                    <button id="btnPause" class="secondary" disabled>暂停</button>
+                    <button id="btnStep" class="secondary">单步 &gt;</button>
+                    <button id="btnReset" class="secondary">重置</button>
+                </div>
+
+                <div class="status-line" style="margin-top: 10px;">
+                    <span>状态</span>
+                    <span id="statusIndicator" class="status-pill">就绪</span>
+                </div>
             </div>
-        </div>
 
-        <div class="control-group">
-            <label>动画速度: <span id="speedVal">500ms</span></label>
-            <input type="range" id="speedChoice" min="50" max="1000" step="50" value="500" style="direction: rtl">
-            <!-- larger value = slower in code logic (ms delay). Viz: right = big delay = slow. -->
-        </div>
+            <div class="card">
+                <div class="section-title">运行日志</div>
+                <div class="log-panel" id="logPanel">
+                    <div class="log-entry">等待开始...</div>
+                </div>
+            </div>
+        </aside>
 
-        <div class="btn-row">
-            <button id="btnPlay">播放</button>
-            <button id="btnPause" class="secondary" disabled>暂停</button>
-            <button id="btnReset" class="secondary">重置</button>
-        </div>
-        
-        <div class="control-group">
-             <label>状态</label>
-             <div id="statusIndicator" style="color: var(--primary);">就绪</div>
-        </div>
+        <main class="panel">
+            <div class="viz-head">
+                <div>
+                    <div class="section-title">可视化演示</div>
+                    <div class="meta-line">当前行 <span id="lineNum">-</span> · 当前位置 <span id="posNum">-</span></div>
+                </div>
+                <div class="legend">
+                    <span><i style="background: rgba(21, 128, 61, 0.5);"></i>匹配</span>
+                    <span><i style="background: rgba(185, 28, 28, 0.5);"></i>不匹配</span>
+                    <span><i style="background: rgba(249, 115, 22, 0.4);"></i>模式词</span>
+                </div>
+            </div>
+
+            <div class="viz-stage">
+                <div class="line-display" id="lineDisplay"></div>
+            </div>
+
+            <div class="grid-split" style="margin-top: 16px;">
+                <div class="card calc-panel" id="calcPanel">
+                    <div class="calc-title">实时计算详情</div>
+                    <div class="calc-grid">
+                        <div class="calc-card" id="calcContent">等待运行...</div>
+                        <div class="calc-card">
+                            <div style="font-weight: 600; color: var(--text); margin-bottom: 6px;">好后缀推导 (前缀回退)</div>
+                            <pre class="gs-walk" id="gsWalk">等待运行...</pre>
+                            <div class="calc-note" id="gsNote"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="algoDetails" style="display:none;">
+                    <div class="section-title">预处理表</div>
+                    <div style="display:grid; gap: 12px;">
+                        <div>
+                            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">坏字符表 (Bad Char)</div>
+                            <div id="bcTable" class="table-list"></div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">好后缀表 (Good Suffix)</div>
+                            <div id="gsTable" class="table-list"></div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--muted); margin-top: 10px;">
+                        不匹配时比较两张表的跳跃建议，取最大值。
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-row">
+                <div class="card">
+                    <div class="section-title">Grep 最终输出</div>
+                    <div id="outputContainer" class="output-view"></div>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <!-- Right Visualization -->
-    <div class="panel">
-        <h2>
-            <span>可视化演示 (Visualizer)</span>
-            <span style="font-size: 0.8em; font-weight: normal; color: var(--text-muted); margin-left: auto;">当前行：<span id="lineNum">0</span></span>
-        </h2>
-
-        <div class="viz-stage" id="vizStage">
-            <!-- Text Line Container -->
-            <div class="line-display" id="lineDisplay">
-                <!-- Characters injected here -->
-            </div>
-            <!-- Pattern injected absolutely within line-display relative to it -->
-            
-            <div class="log-panel" id="logPanel">
-                <div class="log-entry">等待开始...</div>
-            </div>
-        </div>
-
-        <div class="output-view">
-            <h3>Grep 最终输出 (Result)</h3>
-            <div id="outputContainer" style="font-family: monospace; white-space: pre;"></div>
-        </div>
-    </div>
-    
-    <!-- Prompt Output -->
     <div class="prompt-box">
-        <div class="prompt-text" id="promptText">
-            解释一下朴素(Naive)字符串搜索算法的步骤。
-        </div>
-        <button style="width: auto; flex: 0 0 auto;" id="btnCopy">复制提示词</button>
+        <div class="prompt-text" id="promptText">请解释 Boyer-Moore 算法是如何在该文本中查找 "grep" 的。</div>
+        <button style="width: auto;" id="btnCopy" class="secondary">复制提示词</button>
     </div>
 </div>
 
 <script>
-    // --- State ---
+    const CELL = 30;
+    const PAD_LEFT = 20;
+
     const state = {
         pattern: "grep",
         text: "",
-        algorithm: "naive",
+        algorithm: "boyer",
         delay: 500,
-        
-        // Runtime
         lines: [],
         currentLineIdx: -1,
         steps: [],
         stepIdx: 0,
         isPlaying: false,
+        isFastForwarding: false,
         timer: null
     };
 
-    // --- DOM Elements ---
     const els = {
         pattern: document.getElementById('patternChoice'),
         text: document.getElementById('textChoice'),
@@ -338,27 +778,54 @@ overnight for a task.</textarea>
         speedVal: document.getElementById('speedVal'),
         btnPlay: document.getElementById('btnPlay'),
         btnPause: document.getElementById('btnPause'),
+        btnStep: document.getElementById('btnStep'),
         btnReset: document.getElementById('btnReset'),
         status: document.getElementById('statusIndicator'),
         lineNum: document.getElementById('lineNum'),
+        posNum: document.getElementById('posNum'),
         lineDisplay: document.getElementById('lineDisplay'),
         logPanel: document.getElementById('logPanel'),
         output: document.getElementById('outputContainer'),
         prompt: document.getElementById('promptText'),
         btnCopy: document.getElementById('btnCopy'),
-        // New elements
         preset: document.getElementById('presetChoice'),
+        presetGroup: document.getElementById('presetGroup'),
         algoDetails: document.getElementById('algoDetails'),
+        algoGroup: document.getElementById('algoGroup'),
         bcTable: document.getElementById('bcTable'),
-        gsTable: document.getElementById('gsTable')
+        gsTable: document.getElementById('gsTable'),
+        calcContent: document.getElementById('calcContent'),
+        gsWalk: document.getElementById('gsWalk'),
+        gsNote: document.getElementById('gsNote'),
+        algoChip: document.getElementById('algoChip')
     };
+
+    function syncOptionGroup(groupEl, value) {
+        if (!groupEl) return;
+        const buttons = groupEl.querySelectorAll('button');
+        buttons.forEach(btn => {
+            const isActive = btn.dataset.value === value;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+        });
+    }
+
+    function bindOptionGroup(groupEl, selectEl) {
+        if (!groupEl || !selectEl) return;
+        groupEl.addEventListener('click', (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+            selectEl.value = btn.dataset.value;
+            selectEl.dispatchEvent(new Event('change'));
+        });
+        syncOptionGroup(groupEl, selectEl.value);
+    }
 
     const DESCRIPTIONS = {
         naive: "线性检查每个字符。简单但效率较低 O(n*m)。",
-        boyer: "经过优化。当发生不匹配时，利用“坏字符规则”和“好后缀规则”计算跳跃步数，取最大值，从而大幅跳过无效字符。"
+        boyer: "右向左比较，遇到不匹配时结合坏字符与好后缀，计算跳跃步数并取最大值。"
     };
-    
-    // --- Preset Data ---
+
     const PRESETS = {
         default: {
             p: "grep",
@@ -382,13 +849,9 @@ overnight for a task.</textarea>
         }
     };
 
-    // --- Logic: Preprocessing Tables ---
-    
     function makeBadCharTable(pattern) {
         const table = {};
-        for (let i = 0; i < pattern.length; i++) {
-            table[pattern[i]] = i; 
-        }
+        for (let i = 0; i < pattern.length; i++) table[pattern[i]] = i;
         return table;
     }
 
@@ -397,7 +860,6 @@ overnight for a task.</textarea>
         const suff = new Array(m).fill(0);
         const bmGs = new Array(m).fill(m);
 
-        // 1. suff[]: longest common suffix of P and P[0..i]
         suff[m - 1] = m;
         let g = m - 1;
         let f = 0;
@@ -407,72 +869,51 @@ overnight for a task.</textarea>
             } else {
                 if (i < g) g = i;
                 f = i;
-                while (g >= 0 && pattern[g] === pattern[g + m - 1 - f]) {
-                    g--;
-                }
+                while (g >= 0 && pattern[g] === pattern[g + m - 1 - f]) g--;
                 suff[i] = f - g;
             }
         }
 
-        // 2. bmGs[]
-        // Case 2: Prefix matches a Suffix of P
         let j = 0;
         for (let i = m - 1; i >= 0; --i) {
-            if (suff[i] === i + 1) { 
+            if (suff[i] === i + 1) {
                 for (; j < m - 1 - i; ++j) {
-                    if (bmGs[j] === m) {
-                        bmGs[j] = m - 1 - i;
-                    }
+                    if (bmGs[j] === m) bmGs[j] = m - 1 - i;
                 }
             }
         }
 
-        // Case 3: Suffix matches a substring inside P
         for (let i = 0; i <= m - 2; ++i) {
             bmGs[m - 1 - suff[i]] = m - 1 - i;
         }
-        
+
         return { bmGs, suff };
     }
-    
+
     function renderTables(pattern) {
-        // Clear
         els.bcTable.innerHTML = '';
         els.gsTable.innerHTML = '';
-        
-        // BC
+
         const bc = makeBadCharTable(pattern);
-        let html = '';
         const keys = Object.keys(bc).sort();
-        if (keys.length === 0) html = '<div>None</div>';
-        else {
+        if (keys.length === 0) {
+            els.bcTable.innerHTML = '<div class="table-row">None</div>';
+        } else {
             keys.forEach(k => {
-               html += `<div style="display:flex; justify-content:space-between;"><span>'${k}'</span> <span>idx ${bc[k]}</span></div>`; 
+                els.bcTable.innerHTML += `<div class="table-row"><span>'${k}'</span><span>idx ${bc[k]}</span></div>`;
             });
         }
-        els.bcTable.innerHTML = html;
-        
-        // GS
+
         const { bmGs } = makeGoodSuffixTable(pattern);
-        html = '';
         bmGs.forEach((shift, idx) => {
-            // idx is the MISMATCH index. Suffix len is m - 1 - idx.
-            const suffixLen = pattern.length - 1 - idx;
-            // Only show interesting ones or all? Showing 0 is confusing.
-            // Let's show all for completeness or just a specific few? 
-            // Better: Mismatch @ idx -> Shift
-            html += `<div style="display:flex; justify-content:space-between;"><span>@idx ${idx}</span> <span style="color:var(--success)">${shift}</span></div>`; 
+            els.gsTable.innerHTML += `<div class="table-row"><span>@idx ${idx}</span><span style="color:var(--good)">${shift}</span></div>`;
         });
-        els.gsTable.innerHTML = html;
     }
 
-    // --- Logic: Algorithms ---
-
     function generateSteps(text, pattern, algo) {
-        // Preprocess if BM
         let bcTable = {};
         let gsData = { bmGs: [] };
-        
+
         if (algo === 'boyer') {
             bcTable = makeBadCharTable(pattern);
             gsData = makeGoodSuffixTable(pattern);
@@ -481,29 +922,26 @@ overnight for a task.</textarea>
         } else {
             els.algoDetails.style.display = 'none';
         }
-    
-        // Break text into lines
+
         const lines = text.split('\n');
         const tasks = [];
 
-        // For each line, generate search steps
         lines.forEach((line, lineIdx) => {
-            // Task: Load Line
             tasks.push({ type: 'loadLine', line, lineIdx });
 
-            let i = 0; // index in text line
+            let i = 0;
             let foundInLine = false;
 
             while (i <= line.length - pattern.length) {
                 let j = 0;
                 let mismatch = false;
-                
+
                 if (algo === 'naive') {
                     tasks.push({ type: 'align', textIdx: i });
-                    
+
                     for (j = 0; j < pattern.length; j++) {
                         tasks.push({ type: 'compare', textIdx: i + j, patternIdx: j });
-                        
+
                         if (line[i + j] !== pattern[j]) {
                             tasks.push({ type: 'mismatch', textIdx: i + j, patternIdx: j });
                             mismatch = true;
@@ -522,50 +960,49 @@ overnight for a task.</textarea>
                         tasks.push({ type: 'shift', amount: 1, reason: '不匹配，向右移动 1 格' });
                         i++;
                     }
-
                 } else if (algo === 'boyer') {
                     tasks.push({ type: 'align', textIdx: i });
-                    
-                    // Scan right-to-left
                     j = pattern.length - 1;
                     let skip = 0;
                     let mismatchIdx = -1;
 
                     while (j >= 0) {
                         tasks.push({ type: 'compare', textIdx: i + j, patternIdx: j });
-                        
+
                         if (line[i + j] !== pattern[j]) {
                             mismatchIdx = j;
                             tasks.push({ type: 'mismatch', textIdx: i + j, patternIdx: j });
                             mismatch = true;
-                            
-                            // 1. Bad Char Rule
+
                             const badChar = line[i + j];
                             const lastOcc = bcTable[badChar] !== undefined ? bcTable[badChar] : -1;
-                            // Shift = index_mismatch - last_occurrence
-                            // Ensure shift >= 1
                             let shiftBC = mismatchIdx - lastOcc;
                             if (shiftBC < 1) shiftBC = 1;
-                            
-                            // 2. Good Suffix Rule
-                            // Look up bmGs table using mismatch index
+
                             const shiftGS = gsData.bmGs[mismatchIdx];
-                            
-                            // Decision
                             skip = Math.max(shiftBC, shiftGS);
-                            
+
                             let reason = `坏字符 '${badChar}' 建议跳 ${shiftBC} 格。`;
                             if (shiftGS > shiftBC) {
-                                reason += ` 但好后缀规则更有力，建议跳 ${shiftGS} 格！`;
+                                reason += ` 好后缀更有力，建议跳 ${shiftGS} 格。`;
                             } else {
                                 reason += ` (好后缀建议 ${shiftGS} 格，未采纳)`;
                             }
-                            reason += `\n>> 最终决定：跳 ${skip} 格`;
+                            reason += ` 最终跳 ${skip} 格`;
 
-                            tasks.push({ 
-                                type: 'shift', 
-                                amount: skip, 
-                                reason: reason
+                            tasks.push({
+                                type: 'shift',
+                                amount: skip,
+                                reason: reason,
+                                mismatchIdx: mismatchIdx,
+                                badChar: badChar,
+                                pattern: pattern,
+                                badCharPos: lastOcc,
+                                shiftBC: shiftBC,
+                                shiftGS: shiftGS,
+                                finalSkip: skip,
+                                suffLen: pattern.length - 1 - mismatchIdx,
+                                suffStr: pattern.substring(mismatchIdx + 1)
                             });
                             break;
                         } else {
@@ -574,34 +1011,27 @@ overnight for a task.</textarea>
                         j--;
                     }
 
-                    if (!mismatch) { // Succeeded
+                    if (!mismatch) {
                         foundInLine = true;
                         tasks.push({ type: 'found', start: i, end: i + pattern.length });
-                        // For a full match, GS rule uses bmGs[0] technically (conceptually shift past match)
-                        // but usually we shift 1 or query a special entry for full match.
-                        // For simplicity visualization:
-                        const fullMatchShift = gsData.bmGs[0] || 1; 
-                        tasks.push({ type: 'shift', amount: fullMatchShift, reason: `匹配成功！根据 GS 规则跳 ${fullMatchShift} 格寻找下一个。` });
-                        i += fullMatchShift; 
+                        const fullMatchShift = gsData.bmGs[0] || 1;
+                        tasks.push({ type: 'shift', amount: fullMatchShift, reason: `匹配成功，GS 建议跳 ${fullMatchShift} 格寻找下一个。` });
+                        i += fullMatchShift;
                     } else {
                         i += skip;
                     }
                 }
             }
 
-            // End of line task
             tasks.push({ type: 'endLine', found: foundInLine, content: line, lineIdx });
         });
-        
+
         return tasks;
     }
 
-    // --- Renderers ---
-
     function renderLine(lineText) {
         els.lineDisplay.innerHTML = '';
-        
-        // Create text chars
+
         for (let i = 0; i < lineText.length; i++) {
             const charBox = document.createElement('div');
             charBox.className = 'char-box text-char';
@@ -610,12 +1040,11 @@ overnight for a task.</textarea>
             els.lineDisplay.appendChild(charBox);
         }
 
-        // Create Pattern Overlay (Hidden initially)
         const patDiv = document.createElement('div');
         patDiv.className = 'pattern-overlay';
         patDiv.id = 'patternOverlay';
         patDiv.style.opacity = '0';
-        
+
         for (let i = 0; i < state.pattern.length; i++) {
             const pChar = document.createElement('div');
             pChar.className = 'pattern-char';
@@ -623,11 +1052,11 @@ overnight for a task.</textarea>
             pChar.dataset.pidx = i;
             patDiv.appendChild(pChar);
         }
-        
+
         els.lineDisplay.appendChild(patDiv);
     }
 
-    function addLog(msg, type='info') {
+    function addLog(msg, type = 'info') {
         const div = document.createElement('div');
         div.className = `log-entry ${type === 'important' ? 'highlight' : ''}`;
         div.textContent = `> ${msg}`;
@@ -636,31 +1065,106 @@ overnight for a task.</textarea>
     }
 
     function addToOutput(lineIdx, content, matches) {
+        if (!matches) return;
         const div = document.createElement('div');
         div.className = `output-line ${matches ? 'found' : ''}`;
-        
-        if (matches) {
-            div.textContent = `${lineIdx + 1}: ${content}`;
-        } else {
-            return;
-        }
+        div.textContent = `${lineIdx + 1}: ${content}`;
         els.output.appendChild(div);
     }
 
-    // --- Controller ---
+    function buildGoodSuffixWalkthrough(pattern, mismatchIdx, shiftGS) {
+        const suffix = pattern.substring(mismatchIdx + 1);
+        if (!suffix) {
+            return {
+                text: '好后缀长度为 0，本轮无需推导。',
+                note: `预处理表: bmGs[${mismatchIdx}] = ${shiftGS}，运行时 O(1) 查表。`
+            };
+        }
+
+        const lines = [];
+        lines.push(pattern);
+        lines.push(' '.repeat(mismatchIdx + 1) + suffix);
+        lines.push('');
+        lines.push('前缀回退检测:');
+
+        let found = false;
+        for (let k = suffix.length; k >= 1; k--) {
+            const tail = suffix.slice(suffix.length - k);
+            const prefix = pattern.slice(0, k);
+            const ok = tail === prefix;
+            lines.push(`- ${tail} vs ${prefix} (前缀) -> ${ok ? '行' : '不行'}`);
+            if (ok) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) lines.push('- 无可用前缀，使用全跳');
+
+        const internalIdx = pattern.lastIndexOf(suffix, pattern.length - 2);
+        const extra = internalIdx !== -1
+            ? `内部匹配: "${suffix}" 出现在 idx ${internalIdx}`
+            : '内部匹配: 未找到 (回退到前缀策略)';
+
+        return {
+            text: lines.join('\n'),
+            note: `${extra}。预处理: suff[] -> bmGs[]，避免每次重新比对。`
+        };
+    }
+
+    function renderCalc(task) {
+        if (!task.badChar) return;
+
+        let html = '';
+        html += `<div class="calc-step"><strong>1. 坏字符规则</strong></div>`;
+        html += `<div class="calc-step">坏字符: <span class="calc-highlight">'${task.badChar}'</span>，最右出现 idx: ${task.badCharPos === -1 ? '不存在' : task.badCharPos}</div>`;
+        html += `<div class="calc-step">计算: ${task.mismatchIdx} - ${task.badCharPos} = ${task.shiftBC}</div>`;
+        html += `<div class="calc-step">建议跳跃: <span class="calc-highlight" style="color:${task.shiftBC === task.finalSkip ? 'var(--good)' : ''}">${task.shiftBC} 格</span></div>`;
+
+        html += `<div class="calc-step" style="margin-top:8px;"><strong>2. 好后缀规则</strong></div>`;
+        if (task.suffLen > 0) {
+            html += `<div class="calc-step">匹配后缀: <span class="calc-highlight">"${task.suffStr}"</span> (长度 ${task.suffLen})</div>`;
+            html += `<div class="calc-step">查表: bmGs[${task.mismatchIdx}] = <span class="calc-highlight" style="color:${task.shiftGS === task.finalSkip ? 'var(--good)' : ''}">${task.shiftGS}</span></div>`;
+        } else {
+            html += `<div class="calc-step">后缀长度 0，本规则贡献有限。</div>`;
+        }
+
+        html += `<div class="calc-step" style="margin-top:8px; border-top:1px dashed #e6e2d9; padding-top:6px;">`;
+        html += `<strong>最终结果: max(${task.shiftBC}, ${task.shiftGS}) = <span style="color:var(--accent-ink); font-size:1.05em">${task.finalSkip}</span></strong>`;
+        html += `</div>`;
+
+        els.calcContent.innerHTML = html;
+        const walkthrough = buildGoodSuffixWalkthrough(task.pattern, task.mismatchIdx, task.shiftGS);
+        els.gsWalk.textContent = walkthrough.text;
+        els.gsNote.textContent = walkthrough.note;
+    }
 
     function reset() {
         stop();
         state.stepIdx = 0;
         state.steps = [];
         state.currentLineIdx = -1;
-        
-        els.lineDisplay.innerHTML = '<div style="color:var(--text-muted)">准备开始...</div>';
+
+        els.lineDisplay.innerHTML = '<div style="color:var(--muted)">准备开始...</div>';
         els.logPanel.innerHTML = '';
         els.output.innerHTML = '';
         els.status.textContent = '就绪';
         els.lineNum.textContent = '-';
-        
+        els.posNum.textContent = '-';
+        els.calcContent.innerHTML = '等待运行...';
+        els.gsWalk.textContent = '等待运行...';
+        els.gsNote.textContent = '';
+
+        if (els.algo.value === 'boyer' && els.pattern.value) {
+            renderTables(els.pattern.value);
+            els.algoDetails.style.display = 'block';
+        } else {
+            els.algoDetails.style.display = 'none';
+        }
+
+        syncOptionGroup(els.presetGroup, els.preset.value);
+        syncOptionGroup(els.algoGroup, els.algo.value);
+
         updatePrompt();
     }
 
@@ -668,7 +1172,7 @@ overnight for a task.</textarea>
         state.text = els.text.value;
         state.pattern = els.pattern.value;
         state.algorithm = els.algo.value;
-        
+
         if (!state.pattern) {
             alert("请输入搜索关键词");
             return false;
@@ -676,10 +1180,10 @@ overnight for a task.</textarea>
 
         state.steps = generateSteps(state.text, state.pattern, state.algorithm);
         state.stepIdx = 0;
-        
+
         els.output.innerHTML = '';
         els.logPanel.innerHTML = '';
-        
+
         return true;
     }
 
@@ -695,67 +1199,70 @@ overnight for a task.</textarea>
         const textChars = document.querySelectorAll('.text-char');
         const patternChars = document.querySelectorAll('.pattern-char');
 
-        switch(task.type) {
+        switch (task.type) {
             case 'loadLine':
                 renderLine(task.line);
                 els.lineNum.textContent = task.lineIdx + 1;
+                els.posNum.textContent = '-';
                 addLog(`读取第 ${task.lineIdx + 1} 行: "${task.line}"`);
                 state.currentLineIdx = task.lineIdx;
                 break;
 
             case 'align':
-                // Reset styles
-                textChars.forEach(el => {
-                    el.classList.remove('active');
-                });
+                textChars.forEach(el => el.classList.remove('active'));
                 patternChars.forEach(el => {
-                    el.className = 'pattern-char';
+                    el.style.backgroundColor = 'rgba(249, 115, 22, 0.08)';
+                    el.style.borderColor = 'rgba(249, 115, 22, 0.8)';
                 });
 
                 if (overlay) {
                     overlay.style.opacity = '1';
-                    overlay.style.left = (20 + (task.textIdx * 30)) + 'px';
+                    overlay.style.left = (PAD_LEFT + (task.textIdx * CELL)) + 'px';
                 }
+                els.posNum.textContent = task.textIdx;
+                addLog(`对齐到索引 ${task.textIdx}`);
                 break;
-            
+
             case 'compare':
-                 if (textChars[task.textIdx]) textChars[task.textIdx].classList.add('active');
-                 if (patternChars[task.patternIdx]) patternChars[task.patternIdx].style.borderColor = 'var(--primary)';
-                 break;
+                if (textChars[task.textIdx]) textChars[task.textIdx].classList.add('active');
+                if (patternChars[task.patternIdx]) patternChars[task.patternIdx].style.borderColor = 'var(--info)';
+                break;
 
             case 'match-char':
-                if (textChars[task.textIdx]) {
-                    textChars[task.textIdx].classList.add('success'); 
-                    textChars[task.textIdx].style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                }
+                if (textChars[task.textIdx]) textChars[task.textIdx].classList.add('match');
                 if (patternChars[task.patternIdx]) {
-                     patternChars[task.patternIdx].style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                     patternChars[task.patternIdx].style.borderColor = 'var(--success)';
+                    patternChars[task.patternIdx].style.backgroundColor = 'rgba(21, 128, 61, 0.12)';
+                    patternChars[task.patternIdx].style.borderColor = 'var(--good)';
                 }
                 break;
 
             case 'mismatch':
-                if (textChars[task.textIdx]) {
-                    textChars[task.textIdx].classList.add('mismatch');
-                }
+                if (textChars[task.textIdx]) textChars[task.textIdx].classList.add('mismatch');
                 if (patternChars[task.patternIdx]) {
-                     patternChars[task.patternIdx].style.borderColor = 'var(--error)';
-                     patternChars[task.patternIdx].style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                    patternChars[task.patternIdx].style.borderColor = 'var(--bad)';
+                    patternChars[task.patternIdx].style.backgroundColor = 'rgba(185, 28, 28, 0.12)';
                 }
                 addLog(`索引 ${task.textIdx} 处不匹配`, 'important');
                 break;
-            
+
             case 'found':
-                addLog(`在索引 ${task.start} 处找到匹配！`, 'important');
+                addLog(`在索引 ${task.start} 处找到匹配`, 'important');
                 for (let k = task.start; k < task.end; k++) {
-                    if (textChars[k]) {
-                        textChars[k].classList.add('match');
-                    }
+                    if (textChars[k]) textChars[k].classList.add('match');
                 }
                 break;
 
             case 'shift':
                 addLog(task.reason);
+                if (task.shiftGS !== undefined) {
+                    renderCalc(task);
+                } else {
+                    els.calcContent.innerHTML = task.reason || '移动窗口继续比较。';
+                    els.gsWalk.textContent = state.algorithm === 'boyer'
+                        ? '完整匹配，无需推导好后缀。'
+                        : '朴素算法不使用好后缀规则。';
+                    els.gsNote.textContent = '';
+                }
                 break;
 
             case 'endLine':
@@ -780,28 +1287,44 @@ overnight for a task.</textarea>
             state.isPlaying = true;
             els.btnPlay.disabled = true;
             els.btnPause.disabled = false;
-            els.status.textContent = "运行中...";
+            els.status.textContent = "运行中";
             els.btnPlay.textContent = "继续";
-            
             state.timer = setInterval(step, state.delay);
         }
     }
 
     function stop() {
         state.isPlaying = false;
-        clearInterval(state.timer);
+        if (state.timer) {
+            clearInterval(state.timer);
+            clearTimeout(state.timer);
+            state.timer = null;
+        }
         els.btnPlay.disabled = false;
         els.btnPause.disabled = true;
         els.status.textContent = "已暂停";
         els.btnPlay.textContent = "继续";
     }
 
-    // --- Updates ---
+    function fastForwardLoop() {
+        if (!state.isPlaying) return;
+        step();
+        const prevTask = state.steps[state.stepIdx - 1];
+        if (!prevTask) return;
+        if (state.stepIdx >= state.steps.length) return;
+        if (prevTask.type === 'shift') {
+            stop();
+            state.isFastForwarding = false;
+            els.status.textContent = "已暂停 (完成一次跳跃)";
+            return;
+        }
+        state.timer = setTimeout(fastForwardLoop, 30);
+    }
 
     function updateAll() {
         updatePrompt();
         els.speedVal.textContent = els.speed.value + "ms";
-        state.delay = parseInt(els.speed.value);
+        state.delay = parseInt(els.speed.value, 10);
         if (state.isPlaying) {
             clearInterval(state.timer);
             state.timer = setInterval(step, state.delay);
@@ -812,16 +1335,40 @@ overnight for a task.</textarea>
         const alg = els.algo.value;
         const pat = els.pattern.value;
         const algName = alg === 'naive' ? '朴素(Naive)' : 'Boyer-Moore';
-        
-        const txt = `请解释 ${algName} 算法是如何在该文本中查找 "${pat}" 的。重点讲解可视化中展示的原理，特别是它处理不匹配和跳跃(Shift)的机制。`;
-        
+        const txt = `请解释 ${algName} 算法是如何在该文本中查找 "${pat}" 的。重点讲解可视化中展示的原理，特别是不匹配和跳跃(Shift)的机制。`;
         els.prompt.textContent = txt;
+        els.algoChip.textContent = alg === 'naive' ? 'Naive' : 'Boyer-Moore';
     }
 
-    // --- Events ---
-
     els.btnPlay.addEventListener('click', play);
-    
+
+    els.btnStep.addEventListener('click', () => {
+        if (state.isPlaying && !state.isFastForwarding) {
+            stop();
+            els.status.textContent = "已暂停";
+            return;
+        }
+
+        if (state.steps.length === 0) {
+            if (!initRun()) return;
+        }
+
+        if (state.stepIdx >= state.steps.length) return;
+
+        state.isFastForwarding = true;
+        state.isPlaying = true;
+        els.btnPlay.disabled = true;
+        els.btnPause.disabled = false;
+        els.status.textContent = "正在计算下一步跳跃";
+
+        if (state.timer) {
+            clearInterval(state.timer);
+            clearTimeout(state.timer);
+        }
+
+        fastForwardLoop();
+    });
+
     els.btnPause.addEventListener('click', () => {
         stop();
         els.status.textContent = "已暂停";
@@ -833,8 +1380,7 @@ overnight for a task.</textarea>
     });
 
     els.speed.addEventListener('input', updateAll);
-    
-    // Wire up preset change
+
     els.preset.addEventListener('change', () => {
         const key = els.preset.value;
         const data = PRESETS[key];
@@ -842,25 +1388,23 @@ overnight for a task.</textarea>
             els.pattern.value = data.p;
             els.text.value = data.t;
             if (key !== 'default') {
-                els.algo.value = 'boyer'; // Switch to BM for interesting presets
+                els.algo.value = 'boyer';
                 els.algoDesc.textContent = DESCRIPTIONS['boyer'];
             }
+            syncOptionGroup(els.presetGroup, els.preset.value);
+            syncOptionGroup(els.algoGroup, els.algo.value);
             reset();
         }
     });
 
     els.algo.addEventListener('change', () => {
         els.algoDesc.textContent = DESCRIPTIONS[els.algo.value];
+        syncOptionGroup(els.algoGroup, els.algo.value);
         reset();
     });
 
-    els.pattern.addEventListener('input', () => {
-        reset(); 
-    });
-
-    els.text.addEventListener('input', () => {
-        reset();
-    });
+    els.pattern.addEventListener('input', reset);
+    els.text.addEventListener('input', reset);
 
     els.btnCopy.addEventListener('click', () => {
         navigator.clipboard.writeText(els.prompt.textContent);
@@ -869,9 +1413,9 @@ overnight for a task.</textarea>
         setTimeout(() => els.btnCopy.textContent = orig, 1500);
     });
 
-    // Init
+    bindOptionGroup(els.presetGroup, els.preset);
+    bindOptionGroup(els.algoGroup, els.algo);
     reset();
-
 </script>
 </body>
 </html>
