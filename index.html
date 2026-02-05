@@ -6,76 +6,140 @@
     <title>Algorithm Visualizations</title>
     <style>
         :root {
-            --bg: #111827;
-            --card-bg: #1f2937;
-            --border: #374151;
-            --text: #f3f4f6;
-            --muted: #9ca3af;
-            --primary: #3b82f6;
+            --bg: #f7f6f1;
+            --panel: #ffffff;
+            --panel-2: #fbfaf6;
+            --border: #e6e2d9;
+            --text: #111827;
+            --muted: #6b7280;
+            --accent: #f97316;
+            --accent-ink: #9a3412;
+            --shadow: 0 22px 50px rgba(17, 24, 39, 0.08);
         }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
         body {
             margin: 0;
-            padding: 40px 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg);
+            padding: 40px 24px;
+            font-family: "Space Grotesk", "Soehne", "SF Pro Text", "Segoe UI", sans-serif;
             color: var(--text);
+            background:
+                radial-gradient(1000px 600px at 15% -10%, rgba(249, 115, 22, 0.12), transparent 60%),
+                radial-gradient(900px 600px at 95% 0%, rgba(14, 165, 233, 0.12), transparent 55%),
+                linear-gradient(180deg, #f7f6f1 0%, #f4f2ed 60%, #f7f6f1 100%);
             min-height: 100vh;
         }
+
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
         }
-        h1 {
-            margin: 0 0 10px;
-            font-size: 2rem;
+
+        .header {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
         }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            padding: 6px 10px;
+            background: #fff3e7;
+            color: var(--accent-ink);
+            border: 1px solid #ffd8b3;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.6rem;
+            font-weight: 650;
+        }
+
         .subtitle {
             color: var(--muted);
-            margin-bottom: 40px;
+            margin: 0;
+            font-size: 0.95rem;
         }
+
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
+
         .card {
-            background: var(--card-bg);
+            background: var(--panel);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
+            border-radius: 14px;
+            padding: 22px;
             text-decoration: none;
             color: inherit;
-            transition: border-color 0.2s, transform 0.2s;
+            box-shadow: var(--shadow);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
         }
+
         .card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: 0 28px 60px rgba(17, 24, 39, 0.12);
+            border-color: rgba(249, 115, 22, 0.4);
         }
+
         .card h2 {
-            margin: 0 0 8px;
-            font-size: 1.2rem;
+            margin: 0 0 10px;
+            font-size: 1.15rem;
+            font-weight: 650;
         }
+
         .card p {
             margin: 0;
             color: var(--muted);
             font-size: 0.9rem;
-            line-height: 1.5;
+            line-height: 1.55;
         }
+
         .tag {
             display: inline-block;
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--primary);
-            padding: 2px 8px;
-            border-radius: 4px;
+            background: #fff3e7;
+            color: var(--accent-ink);
+            border: 1px solid #ffd8b3;
+            padding: 4px 10px;
+            border-radius: 999px;
             font-size: 0.75rem;
-            margin-top: 12px;
+            font-weight: 600;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 640px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Algorithm Visualizations</h1>
-        <p class="subtitle">Interactive visualizations for understanding algorithms</p>
+        <header class="header">
+            <div class="brand">
+                <span class="badge">Algo Lab</span>
+                <h1>Algorithm Visualizations</h1>
+            </div>
+            <p class="subtitle">Interactive visualizations for understanding algorithms</p>
+        </header>
         
         <div class="grid">
             <a href="grep-explorer.html" class="card">
