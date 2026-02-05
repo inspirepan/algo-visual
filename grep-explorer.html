@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grep 原理可视化</title>
+    <style>
+        :root {
+            --bg: #111827;
+            --panel-bg: #1f2937;
+            --border: #374151;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --error: #ef4444;
+            --highlight: #f59e0b;
+        }
+
+        /* Fix alignment issues by ensuring borders don't add to width */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+        
+        /* Controls */
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+        input, textarea, select {
+            background: #111827;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 100px; font-family: monospace; }
+        
+        .btn-row { display: flex; gap: 10px; }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            flex: 1;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.secondary { background: var(--border); }
+        
+        input[type="range"] { flex: 1; }
+
+        /* Visualization Area */
+        .viz-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            font-family: monospace;
+            font-size: 1.2rem;
+            position: relative;
+        }
+
+        .line-display {
+            background: #111827;
+            padding: 20px;
+            padding-left: 20px; /* Fixed padding */
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            min-height: 80px;
+            position: relative;
+        }
+
+        .char-box {
+            width: 30px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent; /* Always have border to maintain size */
+            position: relative;
+            flex-shrink: 0;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace; /* Force monospace */
+        }
+        .char-box.text-char { border-bottom: 2px solid #555; }
+        
+        .char-box.match { background-color: rgba(16, 185, 129, 0.2); color: var(--success); font-weight: bold; }
+        .char-box.mismatch { background-color: rgba(239, 68, 68, 0.2); color: var(--error); }
+        .char-box.active { border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.1); }
+        .char-box.checked { opacity: 0.7; }
+
+        /* Pattern overlay */
+        .pattern-overlay {
+            position: absolute;
+            top: 50px; /* Offset below text */
+            left: 20px; /* MUST MATCH .line-display padding-left */
+            display: flex;
+            transition: left 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+            will-change: left;
+        }
+        .pattern-char {
+            width: 30px; /* MUST MATCH .char-box width */
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--highlight);
+            color: var(--highlight);
+            font-weight: bold;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+        }
+
+        /* Stats & Log */
+        .log-panel {
+            flex: 1;
+            background: #111827;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            overflow-y: auto;
+            max-height: 200px;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-entry.highlight { color: var(--text-main); font-weight: bold; }
+
+        /* Output View */
+        .output-view {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+        .output-line { color: var(--text-muted); padding: 2px 0; }
+        .output-line.found { color: var(--success); font-weight: bold; }
+        .output-line .match-span { background: rgba(16, 185, 129, 0.3); color: white; }
+
+        /* Footer Prompt */
+        .prompt-box {
+            grid-column: 1 / -1;
+            background: #1f2937;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .prompt-text { font-family: monospace; color: var(--text-main); flex: 1; margin-right: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Left Controls -->
+    <div class="panel">
+        <h2>实验设置 (Settings)</h2>
+        
+        <div class="control-group">
+            <label>预设场景 (Presets)</label>
+            <select id="presetChoice">
+                <option value="default">默认：grep 简介 (Naive vs BM)</option>
+                <option value="badchar">坏字符规则大显身手 (Clean Break)</option>
+                <option value="suffix_align">好后缀：仅前缀对齐 (EXAMPLE)</option>
+                <option value="suffix_full">好后缀：内部完全重复 (Tooth)</option>
+                <option value="grep_speed">Grep 极速体验 (长跳跃)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>搜索关键词 (Pattern)</label>
+            <input type="text" id="patternChoice" value="grep">
+        </div>
+
+        <div class="control-group">
+            <label>目标文本 (Target Text)</label>
+            <textarea id="textChoice">grep is a command-line utility
+for searching plain-text data
+sets for lines that match a
+regular expression.
+It was written by Ken Thompson
+overnight for a task.</textarea>
+        </div>
+
+        <div class="control-group">
+            <label>算法 (Algorithm)</label>
+            <select id="algoChoice">
+                <option value="naive">朴素匹配 (Naive Scan)</option>
+                <option value="boyer">Boyer-Moore (完整版: BC + GS)</option>
+            </select>
+            <div id="algoDesc" style="font-size: 0.8em; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+                线性检查每个字符。简单但效率较低 O(n*m)。
+            </div>
+        </div>
+        
+        <!-- Algorithm Details Panel (Hidden for Naive) -->
+        <div id="algoDetails" style="display:none; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px;">
+            <div style="font-size:0.9em; font-weight:bold; margin-bottom:8px; color:var(--highlight)">预处理表 (Preprocessing Tables)</div>
+            
+            <div style="display:flex; gap:10px; font-size: 0.75rem;">
+                <div style="flex:1">
+                    <div style="margin-bottom:4px; color:var(--text-muted)">坏字符表 (Bad Char)</div>
+                    <div id="bcTable" style="background:#111; padding:5px; border-radius:4px; max-height:100px; overflow-y:auto; font-family:monospace;">
+                        <!-- injected JS -->
+                    </div>
+                </div>
+                <div style="flex:1">
+                    <div style="margin-bottom:4px; color:var(--text-muted)">好后缀表 (Good Suffix)</div>
+                    <div id="gsTable" style="background:#111; padding:5px; border-radius:4px; max-height:100px; overflow-y:auto; font-family:monospace;">
+                        <!-- injected JS -->
+                    </div>
+                </div>
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;">
+                * 不匹配时，比较两个表的建议跳跃值，取最大者。
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>动画速度: <span id="speedVal">500ms</span></label>
+            <input type="range" id="speedChoice" min="50" max="1000" step="50" value="500" style="direction: rtl">
+            <!-- larger value = slower in code logic (ms delay). Viz: right = big delay = slow. -->
+        </div>
+
+        <div class="btn-row">
+            <button id="btnPlay">播放</button>
+            <button id="btnPause" class="secondary" disabled>暂停</button>
+            <button id="btnReset" class="secondary">重置</button>
+        </div>
+        
+        <div class="control-group">
+             <label>状态</label>
+             <div id="statusIndicator" style="color: var(--primary);">就绪</div>
+        </div>
+    </div>
+
+    <!-- Right Visualization -->
+    <div class="panel">
+        <h2>
+            <span>可视化演示 (Visualizer)</span>
+            <span style="font-size: 0.8em; font-weight: normal; color: var(--text-muted); margin-left: auto;">当前行：<span id="lineNum">0</span></span>
+        </h2>
+
+        <div class="viz-stage" id="vizStage">
+            <!-- Text Line Container -->
+            <div class="line-display" id="lineDisplay">
+                <!-- Characters injected here -->
+            </div>
+            <!-- Pattern injected absolutely within line-display relative to it -->
+            
+            <div class="log-panel" id="logPanel">
+                <div class="log-entry">等待开始...</div>
+            </div>
+        </div>
+
+        <div class="output-view">
+            <h3>Grep 最终输出 (Result)</h3>
+            <div id="outputContainer" style="font-family: monospace; white-space: pre;"></div>
+        </div>
+    </div>
+    
+    <!-- Prompt Output -->
+    <div class="prompt-box">
+        <div class="prompt-text" id="promptText">
+            解释一下朴素(Naive)字符串搜索算法的步骤。
+        </div>
+        <button style="width: auto; flex: 0 0 auto;" id="btnCopy">复制提示词</button>
+    </div>
+</div>
+
+<script>
+    // --- State ---
+    const state = {
+        pattern: "grep",
+        text: "",
+        algorithm: "naive",
+        delay: 500,
+        
+        // Runtime
+        lines: [],
+        currentLineIdx: -1,
+        steps: [],
+        stepIdx: 0,
+        isPlaying: false,
+        timer: null
+    };
+
+    // --- DOM Elements ---
+    const els = {
+        pattern: document.getElementById('patternChoice'),
+        text: document.getElementById('textChoice'),
+        algo: document.getElementById('algoChoice'),
+        algoDesc: document.getElementById('algoDesc'),
+        speed: document.getElementById('speedChoice'),
+        speedVal: document.getElementById('speedVal'),
+        btnPlay: document.getElementById('btnPlay'),
+        btnPause: document.getElementById('btnPause'),
+        btnReset: document.getElementById('btnReset'),
+        status: document.getElementById('statusIndicator'),
+        lineNum: document.getElementById('lineNum'),
+        lineDisplay: document.getElementById('lineDisplay'),
+        logPanel: document.getElementById('logPanel'),
+        output: document.getElementById('outputContainer'),
+        prompt: document.getElementById('promptText'),
+        btnCopy: document.getElementById('btnCopy'),
+        // New elements
+        preset: document.getElementById('presetChoice'),
+        algoDetails: document.getElementById('algoDetails'),
+        bcTable: document.getElementById('bcTable'),
+        gsTable: document.getElementById('gsTable')
+    };
+
+    const DESCRIPTIONS = {
+        naive: "线性检查每个字符。简单但效率较低 O(n*m)。",
+        boyer: "经过优化。当发生不匹配时，利用“坏字符规则”和“好后缀规则”计算跳跃步数，取最大值，从而大幅跳过无效字符。"
+    };
+    
+    // --- Preset Data ---
+    const PRESETS = {
+        default: {
+            p: "grep",
+            t: "grep is a command-line utility\nfor searching plain-text data\nsets for lines that match a\nregular expression.\nIt was written by Ken Thompson\novernight for a task."
+        },
+        badchar: {
+            p: "ABCDE",
+            t: "XXXXAXXXXBXXXXCXXXXDXXXXE\nThis demonstrates Bad Char Rule.\nThe char 'X' is not in Pattern,\nso we skip entirely past it!"
+        },
+        suffix_align: {
+            p: "EXAMPLE",
+            t: "HERE IS A SIMPLE EXAMPLE\nmatches are rare but shifts are huge.\nThe suffix 'MPLE' matches,\nbut fails at 'I'.\nAlgorithm finds 'E' prefix matches 'E' suffix."
+        },
+        suffix_full: {
+            p: "TOOTH",
+            t: "I HAVE A TOOTHACHE TODAY.\nFirst try: matches matches 'TH'.\nFail at 'O'.\nPattern has 'TO' prefix? No.\nPattern has 'OOTH' inside? No.\nWait, look for 'OTH' inside... No.\nLook for 'OO' in 'TOOTH'? Yes!"
+        },
+        grep_speed: {
+            p: "Z99",
+            t: "Searching for a rare code in a big block.\n.....................Z99FoundIt!\nOnly checks end chars mostly.\nSkip Skip Skip!"
+        }
+    };
+
+    // --- Logic: Preprocessing Tables ---
+    
+    function makeBadCharTable(pattern) {
+        const table = {};
+        for (let i = 0; i < pattern.length; i++) {
+            table[pattern[i]] = i; 
+        }
+        return table;
+    }
+
+    function makeGoodSuffixTable(pattern) {
+        const m = pattern.length;
+        const suff = new Array(m).fill(0);
+        const bmGs = new Array(m).fill(m);
+
+        // 1. suff[]: longest common suffix of P and P[0..i]
+        suff[m - 1] = m;
+        let g = m - 1;
+        let f = 0;
+        for (let i = m - 2; i >= 0; --i) {
+            if (i > g && suff[i + m - 1 - f] < i - g) {
+                suff[i] = suff[i + m - 1 - f];
+            } else {
+                if (i < g) g = i;
+                f = i;
+                while (g >= 0 && pattern[g] === pattern[g + m - 1 - f]) {
+                    g--;
+                }
+                suff[i] = f - g;
+            }
+        }
+
+        // 2. bmGs[]
+        // Case 2: Prefix matches a Suffix of P
+        let j = 0;
+        for (let i = m - 1; i >= 0; --i) {
+            if (suff[i] === i + 1) { 
+                for (; j < m - 1 - i; ++j) {
+                    if (bmGs[j] === m) {
+                        bmGs[j] = m - 1 - i;
+                    }
+                }
+            }
+        }
+
+        // Case 3: Suffix matches a substring inside P
+        for (let i = 0; i <= m - 2; ++i) {
+            bmGs[m - 1 - suff[i]] = m - 1 - i;
+        }
+        
+        return { bmGs, suff };
+    }
+    
+    function renderTables(pattern) {
+        // Clear
+        els.bcTable.innerHTML = '';
+        els.gsTable.innerHTML = '';
+        
+        // BC
+        const bc = makeBadCharTable(pattern);
+        let html = '';
+        const keys = Object.keys(bc).sort();
+        if (keys.length === 0) html = '<div>None</div>';
+        else {
+            keys.forEach(k => {
+               html += `<div style="display:flex; justify-content:space-between;"><span>'${k}'</span> <span>idx ${bc[k]}</span></div>`; 
+            });
+        }
+        els.bcTable.innerHTML = html;
+        
+        // GS
+        const { bmGs } = makeGoodSuffixTable(pattern);
+        html = '';
+        bmGs.forEach((shift, idx) => {
+            // idx is the MISMATCH index. Suffix len is m - 1 - idx.
+            const suffixLen = pattern.length - 1 - idx;
+            // Only show interesting ones or all? Showing 0 is confusing.
+            // Let's show all for completeness or just a specific few? 
+            // Better: Mismatch @ idx -> Shift
+            html += `<div style="display:flex; justify-content:space-between;"><span>@idx ${idx}</span> <span style="color:var(--success)">${shift}</span></div>`; 
+        });
+        els.gsTable.innerHTML = html;
+    }
+
+    // --- Logic: Algorithms ---
+
+    function generateSteps(text, pattern, algo) {
+        // Preprocess if BM
+        let bcTable = {};
+        let gsData = { bmGs: [] };
+        
+        if (algo === 'boyer') {
+            bcTable = makeBadCharTable(pattern);
+            gsData = makeGoodSuffixTable(pattern);
+            renderTables(pattern);
+            els.algoDetails.style.display = 'block';
+        } else {
+            els.algoDetails.style.display = 'none';
+        }
+    
+        // Break text into lines
+        const lines = text.split('\n');
+        const tasks = [];
+
+        // For each line, generate search steps
+        lines.forEach((line, lineIdx) => {
+            // Task: Load Line
+            tasks.push({ type: 'loadLine', line, lineIdx });
+
+            let i = 0; // index in text line
+            let foundInLine = false;
+
+            while (i <= line.length - pattern.length) {
+                let j = 0;
+                let mismatch = false;
+                
+                if (algo === 'naive') {
+                    tasks.push({ type: 'align', textIdx: i });
+                    
+                    for (j = 0; j < pattern.length; j++) {
+                        tasks.push({ type: 'compare', textIdx: i + j, patternIdx: j });
+                        
+                        if (line[i + j] !== pattern[j]) {
+                            tasks.push({ type: 'mismatch', textIdx: i + j, patternIdx: j });
+                            mismatch = true;
+                            break;
+                        } else {
+                            tasks.push({ type: 'match-char', textIdx: i + j, patternIdx: j });
+                        }
+                    }
+
+                    if (!mismatch) {
+                        foundInLine = true;
+                        tasks.push({ type: 'found', start: i, end: i + pattern.length });
+                        tasks.push({ type: 'shift', amount: 1, reason: '匹配成功，继续向后扫描' });
+                        i++;
+                    } else {
+                        tasks.push({ type: 'shift', amount: 1, reason: '不匹配，向右移动 1 格' });
+                        i++;
+                    }
+
+                } else if (algo === 'boyer') {
+                    tasks.push({ type: 'align', textIdx: i });
+                    
+                    // Scan right-to-left
+                    j = pattern.length - 1;
+                    let skip = 0;
+                    let mismatchIdx = -1;
+
+                    while (j >= 0) {
+                        tasks.push({ type: 'compare', textIdx: i + j, patternIdx: j });
+                        
+                        if (line[i + j] !== pattern[j]) {
+                            mismatchIdx = j;
+                            tasks.push({ type: 'mismatch', textIdx: i + j, patternIdx: j });
+                            mismatch = true;
+                            
+                            // 1. Bad Char Rule
+                            const badChar = line[i + j];
+                            const lastOcc = bcTable[badChar] !== undefined ? bcTable[badChar] : -1;
+                            // Shift = index_mismatch - last_occurrence
+                            // Ensure shift >= 1
+                            let shiftBC = mismatchIdx - lastOcc;
+                            if (shiftBC < 1) shiftBC = 1;
+                            
+                            // 2. Good Suffix Rule
+                            // Look up bmGs table using mismatch index
+                            const shiftGS = gsData.bmGs[mismatchIdx];
+                            
+                            // Decision
+                            skip = Math.max(shiftBC, shiftGS);
+                            
+                            let reason = `坏字符 '${badChar}' 建议跳 ${shiftBC} 格。`;
+                            if (shiftGS > shiftBC) {
+                                reason += ` 但好后缀规则更有力，建议跳 ${shiftGS} 格！`;
+                            } else {
+                                reason += ` (好后缀建议 ${shiftGS} 格，未采纳)`;
+                            }
+                            reason += `\n>> 最终决定：跳 ${skip} 格`;
+
+                            tasks.push({ 
+                                type: 'shift', 
+                                amount: skip, 
+                                reason: reason
+                            });
+                            break;
+                        } else {
+                            tasks.push({ type: 'match-char', textIdx: i + j, patternIdx: j });
+                        }
+                        j--;
+                    }
+
+                    if (!mismatch) { // Succeeded
+                        foundInLine = true;
+                        tasks.push({ type: 'found', start: i, end: i + pattern.length });
+                        // For a full match, GS rule uses bmGs[0] technically (conceptually shift past match)
+                        // but usually we shift 1 or query a special entry for full match.
+                        // For simplicity visualization:
+                        const fullMatchShift = gsData.bmGs[0] || 1; 
+                        tasks.push({ type: 'shift', amount: fullMatchShift, reason: `匹配成功！根据 GS 规则跳 ${fullMatchShift} 格寻找下一个。` });
+                        i += fullMatchShift; 
+                    } else {
+                        i += skip;
+                    }
+                }
+            }
+
+            // End of line task
+            tasks.push({ type: 'endLine', found: foundInLine, content: line, lineIdx });
+        });
+        
+        return tasks;
+    }
+
+    // --- Renderers ---
+
+    function renderLine(lineText) {
+        els.lineDisplay.innerHTML = '';
+        
+        // Create text chars
+        for (let i = 0; i < lineText.length; i++) {
+            const charBox = document.createElement('div');
+            charBox.className = 'char-box text-char';
+            charBox.textContent = lineText[i];
+            charBox.dataset.idx = i;
+            els.lineDisplay.appendChild(charBox);
+        }
+
+        // Create Pattern Overlay (Hidden initially)
+        const patDiv = document.createElement('div');
+        patDiv.className = 'pattern-overlay';
+        patDiv.id = 'patternOverlay';
+        patDiv.style.opacity = '0';
+        
+        for (let i = 0; i < state.pattern.length; i++) {
+            const pChar = document.createElement('div');
+            pChar.className = 'pattern-char';
+            pChar.textContent = state.pattern[i];
+            pChar.dataset.pidx = i;
+            patDiv.appendChild(pChar);
+        }
+        
+        els.lineDisplay.appendChild(patDiv);
+    }
+
+    function addLog(msg, type='info') {
+        const div = document.createElement('div');
+        div.className = `log-entry ${type === 'important' ? 'highlight' : ''}`;
+        div.textContent = `> ${msg}`;
+        els.logPanel.prepend(div);
+        if (els.logPanel.children.length > 20) els.logPanel.lastChild.remove();
+    }
+
+    function addToOutput(lineIdx, content, matches) {
+        const div = document.createElement('div');
+        div.className = `output-line ${matches ? 'found' : ''}`;
+        
+        if (matches) {
+            div.textContent = `${lineIdx + 1}: ${content}`;
+        } else {
+            return;
+        }
+        els.output.appendChild(div);
+    }
+
+    // --- Controller ---
+
+    function reset() {
+        stop();
+        state.stepIdx = 0;
+        state.steps = [];
+        state.currentLineIdx = -1;
+        
+        els.lineDisplay.innerHTML = '<div style="color:var(--text-muted)">准备开始...</div>';
+        els.logPanel.innerHTML = '';
+        els.output.innerHTML = '';
+        els.status.textContent = '就绪';
+        els.lineNum.textContent = '-';
+        
+        updatePrompt();
+    }
+
+    function initRun() {
+        state.text = els.text.value;
+        state.pattern = els.pattern.value;
+        state.algorithm = els.algo.value;
+        
+        if (!state.pattern) {
+            alert("请输入搜索关键词");
+            return false;
+        }
+
+        state.steps = generateSteps(state.text, state.pattern, state.algorithm);
+        state.stepIdx = 0;
+        
+        els.output.innerHTML = '';
+        els.logPanel.innerHTML = '';
+        
+        return true;
+    }
+
+    function step() {
+        if (state.stepIdx >= state.steps.length) {
+            els.status.textContent = "已完成";
+            stop();
+            return;
+        }
+
+        const task = state.steps[state.stepIdx];
+        const overlay = document.getElementById('patternOverlay');
+        const textChars = document.querySelectorAll('.text-char');
+        const patternChars = document.querySelectorAll('.pattern-char');
+
+        switch(task.type) {
+            case 'loadLine':
+                renderLine(task.line);
+                els.lineNum.textContent = task.lineIdx + 1;
+                addLog(`读取第 ${task.lineIdx + 1} 行: "${task.line}"`);
+                state.currentLineIdx = task.lineIdx;
+                break;
+
+            case 'align':
+                // Reset styles
+                textChars.forEach(el => {
+                    el.classList.remove('active');
+                });
+                patternChars.forEach(el => {
+                    el.className = 'pattern-char';
+                });
+
+                if (overlay) {
+                    overlay.style.opacity = '1';
+                    overlay.style.left = (20 + (task.textIdx * 30)) + 'px';
+                }
+                break;
+            
+            case 'compare':
+                 if (textChars[task.textIdx]) textChars[task.textIdx].classList.add('active');
+                 if (patternChars[task.patternIdx]) patternChars[task.patternIdx].style.borderColor = 'var(--primary)';
+                 break;
+
+            case 'match-char':
+                if (textChars[task.textIdx]) {
+                    textChars[task.textIdx].classList.add('success'); 
+                    textChars[task.textIdx].style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                }
+                if (patternChars[task.patternIdx]) {
+                     patternChars[task.patternIdx].style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                     patternChars[task.patternIdx].style.borderColor = 'var(--success)';
+                }
+                break;
+
+            case 'mismatch':
+                if (textChars[task.textIdx]) {
+                    textChars[task.textIdx].classList.add('mismatch');
+                }
+                if (patternChars[task.patternIdx]) {
+                     patternChars[task.patternIdx].style.borderColor = 'var(--error)';
+                     patternChars[task.patternIdx].style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                }
+                addLog(`索引 ${task.textIdx} 处不匹配`, 'important');
+                break;
+            
+            case 'found':
+                addLog(`在索引 ${task.start} 处找到匹配！`, 'important');
+                for (let k = task.start; k < task.end; k++) {
+                    if (textChars[k]) {
+                        textChars[k].classList.add('match');
+                    }
+                }
+                break;
+
+            case 'shift':
+                addLog(task.reason);
+                break;
+
+            case 'endLine':
+                if (task.found) {
+                    addLog(`第 ${task.lineIdx + 1} 行包含匹配，输出。`);
+                    addToOutput(task.lineIdx, task.content, true);
+                } else {
+                    addLog(`第 ${task.lineIdx + 1} 行结束，无匹配。`);
+                }
+                if (overlay) overlay.style.opacity = '0';
+                break;
+        }
+
+        state.stepIdx++;
+    }
+
+    function play() {
+        if (!state.isPlaying) {
+            if (state.steps.length === 0 || state.stepIdx >= state.steps.length) {
+                if (!initRun()) return;
+            }
+            state.isPlaying = true;
+            els.btnPlay.disabled = true;
+            els.btnPause.disabled = false;
+            els.status.textContent = "运行中...";
+            els.btnPlay.textContent = "继续";
+            
+            state.timer = setInterval(step, state.delay);
+        }
+    }
+
+    function stop() {
+        state.isPlaying = false;
+        clearInterval(state.timer);
+        els.btnPlay.disabled = false;
+        els.btnPause.disabled = true;
+        els.status.textContent = "已暂停";
+        els.btnPlay.textContent = "继续";
+    }
+
+    // --- Updates ---
+
+    function updateAll() {
+        updatePrompt();
+        els.speedVal.textContent = els.speed.value + "ms";
+        state.delay = parseInt(els.speed.value);
+        if (state.isPlaying) {
+            clearInterval(state.timer);
+            state.timer = setInterval(step, state.delay);
+        }
+    }
+
+    function updatePrompt() {
+        const alg = els.algo.value;
+        const pat = els.pattern.value;
+        const algName = alg === 'naive' ? '朴素(Naive)' : 'Boyer-Moore';
+        
+        const txt = `请解释 ${algName} 算法是如何在该文本中查找 "${pat}" 的。重点讲解可视化中展示的原理，特别是它处理不匹配和跳跃(Shift)的机制。`;
+        
+        els.prompt.textContent = txt;
+    }
+
+    // --- Events ---
+
+    els.btnPlay.addEventListener('click', play);
+    
+    els.btnPause.addEventListener('click', () => {
+        stop();
+        els.status.textContent = "已暂停";
+    });
+
+    els.btnReset.addEventListener('click', () => {
+        reset();
+        els.btnPlay.textContent = "播放";
+    });
+
+    els.speed.addEventListener('input', updateAll);
+    
+    // Wire up preset change
+    els.preset.addEventListener('change', () => {
+        const key = els.preset.value;
+        const data = PRESETS[key];
+        if (data) {
+            els.pattern.value = data.p;
+            els.text.value = data.t;
+            if (key !== 'default') {
+                els.algo.value = 'boyer'; // Switch to BM for interesting presets
+                els.algoDesc.textContent = DESCRIPTIONS['boyer'];
+            }
+            reset();
+        }
+    });
+
+    els.algo.addEventListener('change', () => {
+        els.algoDesc.textContent = DESCRIPTIONS[els.algo.value];
+        reset();
+    });
+
+    els.pattern.addEventListener('input', () => {
+        reset(); 
+    });
+
+    els.text.addEventListener('input', () => {
+        reset();
+    });
+
+    els.btnCopy.addEventListener('click', () => {
+        navigator.clipboard.writeText(els.prompt.textContent);
+        const orig = els.btnCopy.textContent;
+        els.btnCopy.textContent = "已复制";
+        setTimeout(() => els.btnCopy.textContent = orig, 1500);
+    });
+
+    // Init
+    reset();
+
+</script>
+</body>
+</html>

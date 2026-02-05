@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Visualizations</title>
+    <style>
+        :root {
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --border: #374151;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --primary: #3b82f6;
+        }
+        body {
+            margin: 0;
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 2rem;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin-bottom: 40px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .card h2 {
+            margin: 0 0 8px;
+            font-size: 1.2rem;
+        }
+        .card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .tag {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Algorithm Visualizations</h1>
+        <p class="subtitle">Interactive visualizations for understanding algorithms</p>
+        
+        <div class="grid">
+            <a href="grep-explorer.html" class="card">
+                <h2>Grep Explorer</h2>
+                <p>Visualize how grep searches text using Naive and Boyer-Moore algorithms. See step-by-step pattern matching with bad character and good suffix rules.</p>
+                <span class="tag">String Matching</span>
+            </a>
+            
+            <!-- Add more cards here -->
+        </div>
+    </div>
+</body>
+</html>
